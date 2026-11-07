@@ -112,4 +112,3 @@ authRoutes.post('/auth/logout', (c) => {
   return c.redirect('/');
 });
 
-authRoutes.get('/admin', requireAdmin, (c) => c.text('Admin'));
