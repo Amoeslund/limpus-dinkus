@@ -150,6 +150,19 @@ export const CharactersPage = ({ chars }: { chars: CharRow[] }) => {
   );
 };
 
+const NO_INSTANCE = 'No instance';
+
+/** Items bucketed by instance: instances alphabetical, items without one last. */
+function groupByInstance(items: ItemRow[]): [string, ItemRow[]][] {
+  const groups = new Map<string, ItemRow[]>();
+  for (const i of items) {
+    const key = i.instance || NO_INSTANCE;
+    groups.set(key, [...(groups.get(key) ?? []), i]);
+  }
+  return [...groups.entries()].sort(([a], [b]) =>
+    a === NO_INSTANCE ? 1 : b === NO_INSTANCE ? -1 : a.localeCompare(b, 'en'));
+}
+
 export const ItemsPage = ({ items, q }: { items: ItemRow[]; q: string }) => (
   <>
     <h1>Admin</h1>
@@ -159,30 +172,39 @@ export const ItemsPage = ({ items, q }: { items: ItemRow[]; q: string }) => (
       <form method="get" action="/admin/items" class="row" style="margin-top:0">
         <input type="text" name="q" value={q} placeholder="Search item..." />
         <button class="btn ghost small" type="submit">Search</button>
-        <span class="alt">New items start at 1 point. Offspec is always 0.</span>
+        <span class="alt">New items start at 1 point. Offspec is always 0. Change an item's instance to move it.</span>
       </form>
-      <div class="scroll">
-        <table>
-          <tr><th>Item</th><th>Instance</th><th class="c">Points</th><th class="c">Times dropped</th><th></th></tr>
-          {items.map((i) => (
-            <tr>
-              <td>{i.name}</td>
-              <td><input type="text" name="instance" form={`i${i.itemId}`} value={i.instance} /></td>
-              <td class="c"><input type="number" name="points" form={`i${i.itemId}`} value={String(i.points)} min="0" step="any" /></td>
-              <td class="c">{i.drops}</td>
-              <td>
-                <form id={`i${i.itemId}`} class="inline" method="post" action={`/admin/items/${i.itemId}`}>
-                  <input type="hidden" name="q" value={q} />
-                  <button class="btn small" type="submit">Save</button>
-                </form>
-              </td>
-            </tr>
-          ))}
-        </table>
-      </div>
       {items.length === 0 ? <p class="alt">No items found.</p> : null}
     </div>
+    {groupByInstance(items).map(([instance, group]) => (
+      <div class="card">
+        <h3>{instance} <span class="alt">{group.length} {group.length === 1 ? 'item' : 'items'}</span></h3>
+        <ItemTable items={group} q={q} />
+      </div>
+    ))}
   </>
+);
+
+const ItemTable = ({ items, q }: { items: ItemRow[]; q: string }) => (
+  <div class="scroll">
+    <table>
+      <tr><th>Item</th><th>Instance</th><th class="c">Points</th><th class="c">Times dropped</th><th></th></tr>
+      {items.map((i) => (
+        <tr>
+          <td>{i.name}</td>
+          <td><input type="text" name="instance" form={`i${i.itemId}`} value={i.instance} /></td>
+          <td class="c"><input type="number" name="points" form={`i${i.itemId}`} value={String(i.points)} min="0" step="any" /></td>
+          <td class="c">{i.drops}</td>
+          <td>
+            <form id={`i${i.itemId}`} class="inline" method="post" action={`/admin/items/${i.itemId}`}>
+              <input type="hidden" name="q" value={q} />
+              <button class="btn small" type="submit">Save</button>
+            </form>
+          </td>
+        </tr>
+      ))}
+    </table>
+  </div>
 );
 
 export const LootPage = ({ rows }: { rows: LootRow[] }) => (
