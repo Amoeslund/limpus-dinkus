@@ -1,0 +1,18 @@
+{
+  "name": "limpus-dinkus",
+  "main": "src/index.tsx",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "routes": [
+    { "pattern": "loremforever.com", "custom_domain": true },
+    { "pattern": "www.loremforever.com", "custom_domain": true }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "limpus",
+      "database_id": "f1fec3a9-0a21-4727-b14f-65caba1d62ca",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

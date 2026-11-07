@@ -1,0 +1,31 @@
+{
+  "name": "limpus-dinkus",
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "vitest run",
+    "deploy": "wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply limpus --local",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Amoeslund/limpus-dinkus.git"
+  },
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/Amoeslund/limpus-dinkus/issues"
+  },
+  "homepage": "https://github.com/Amoeslund/limpus-dinkus#readme",
+  "dependencies": {
+    "hono": "^4.13.16"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.5.1",
+    "@cloudflare/workers-types": "^5.20261104.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0",
+    "wrangler": "^4.157.0"
+  },
+  "private": true
+}

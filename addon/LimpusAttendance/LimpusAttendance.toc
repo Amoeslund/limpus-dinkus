@@ -1,0 +1,6 @@
+## Interface: 16001
+## Title: Limpus Attendance
+## Notes: Records raid attendance per boss kill for the Limpus Dinkus guild site.
+## SavedVariables: LimpusAttendanceDB
+
+LimpusAttendance.lua

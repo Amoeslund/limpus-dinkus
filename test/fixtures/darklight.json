@@ -1,0 +1,15 @@
+{
+  "guild": "Darklight", "addon": "DarklightLC", "version": "2.1.13",
+  "realm": "", "exportedAt": 1762297200, "test": false,
+  "records": [
+    { "id": "1762295000_Mankee_18820_s12", "distributionId": "s12", "timestamp": 1762295000,
+      "date": "2026-11-11 21:14", "player": "Mankee", "itemId": 18820,
+      "itemName": "Talisman of Ephemeral Power", "response": "BiS", "votes": 3 },
+    { "id": "1762295600_Zefal-Forever_19019_s13", "distributionId": "s13", "timestamp": 1762295600,
+      "date": "2026-11-11 21:24", "player": "Zefal-Forever", "itemId": 19019,
+      "itemName": "Thunderfury, Blessed Blade of the Windseeker", "response": "Upgrade", "votes": 1 },
+    { "id": "1762296200_Hexa_18821_s14", "distributionId": "s14", "timestamp": 1762296200,
+      "date": "2026-11-11 21:34", "player": "Hexa", "itemId": 18821,
+      "itemName": "Quick Strike Ring", "response": "Offspec", "votes": 0 }
+  ]
+}
