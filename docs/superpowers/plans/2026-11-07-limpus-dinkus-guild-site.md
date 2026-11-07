@@ -549,10 +549,14 @@ TOC: `## Interface: 16001`, `## Title: Limpus Attendance`, `## SavedVariables: L
 **Files:**
 - Modify: `wrangler.jsonc` (real `database_id`, and `routes: [{ pattern: "loremforever.com", custom_domain: true }, { pattern: "www.loremforever.com", custom_domain: true }]`)
 - Create: `README.md` (setup, deploy, weekly import routine for officers, addon install)
+- Create: `.github/workflows/deploy.yml` (auto-deploy from GitHub; added 2026-11-07 at the user's request)
 
+**Auto-deploy:** GitHub Actions on push to `main` (and on PRs, test only). Job steps: checkout → setup-node 24 with npm cache → `npm ci` → `npm test` → on `main` only: `npx wrangler d1 migrations apply limpus --remote` then `npx wrangler deploy`, both via `cloudflare/wrangler-action` (or plain `npx` with env `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` from repo secrets). Use `concurrency: deploy-production` so two pushes never deploy at the same time. A deploy runs only if the tests pass.
+
+- [ ] **Step 0 (the user does this):** Create a Cloudflare API token with the "Edit Cloudflare Workers" template plus D1 Edit. Add it as the GitHub repo secret `CLOUDFLARE_API_TOKEN`, and add the account id as `CLOUDFLARE_ACCOUNT_ID`.
 - [ ] **Step 1:** `npx wrangler d1 create limpus`. Put the id in `wrangler.jsonc`, then run `npx wrangler d1 migrations apply limpus --remote`.
 - [ ] **Step 2 (the user does this):** Create a Discord application at discord.com/developers. Add the redirect `https://loremforever.com/auth/callback` (and `http://localhost:8787/auth/callback` for dev). Hand over the client id and secret and your own Discord user id.
 - [ ] **Step 3:** For each of the four secrets, run `npx wrangler secret put <NAME>`. `SESSION_SECRET` comes from `openssl rand -hex 32`.
-- [ ] **Step 4:** Run `npm test && npm run deploy`.
+- [ ] **Step 4:** Merge to `main` and push. The workflow tests, migrates and deploys. Check that the Actions run is green.
 - [ ] **Step 5: Verify.** `https://loremforever.com/healthz` returns `ok`. Logging in with Discord reaches `/admin`. Import the test fixtures, check the pages, then delete the test nights. Open one item link to confirm that the Wowhead `/forever/item=` URL pattern resolves. If it doesn't, change `ITEM_URL` so items render as plain text.
 - [ ] **Step 6: Commit and push** `chore: production deploy config and README`
