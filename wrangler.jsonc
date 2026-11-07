@@ -11,8 +11,7 @@
     {
       "binding": "DB",
       "database_name": "limpus",
-      // PLACEHOLDER: run `npx wrangler d1 create limpus` and paste the real id here before the first deploy.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "f1fec3a9-0a21-4727-b14f-65caba1d62ca",
       "migrations_dir": "migrations"
     }
   ]
