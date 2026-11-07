@@ -11,38 +11,69 @@ const fmtPoints = (n: number) => String(Math.round(n * 100) / 100);
 
 const SYMBOL = { main: '●', alt: '◐', absent: '○' } as const;
 
-export const AttendancePage = ({ standings, nights }: { standings: Standing[]; nights: Night[] }) => (
-  <section>
-    <h1>Attendance</h1>
-    <p class="sub">Each raid night counts as one raid. Alts count toward their main. Pug raids are not counted.</p>
-    <div class="card scroll">
-      {standings.length === 0 ? <p class="alt">No attendance yet.</p> : (
-        <table>
-          <tr>
-            <th>Player</th>
-            {nights.map((n) => {
-              const [wk, day] = nightLabel(n.nightDate).split(' · ');
-              return <th class="c">{wk}<br /><span class="alt">{day}</span></th>;
-            })}
-            <th class="c">Raids</th><th>Attendance</th><th class="c">Score</th>
-          </tr>
-          {standings.map((s) => (
+/** Name and score stay pinned on the left; nights scroll beside them, newest first. */
+export const AttendancePage = ({ standings, nights }: { standings: Standing[]; nights: Night[] }) => {
+  const newestFirst = [...nights].sort((a, b) => b.nightDate.localeCompare(a.nightDate));
+  return (
+    <section>
+      <h1>Attendance</h1>
+      <p class="sub">Each raid night counts as one raid. Alts count toward their main. Pug raids are not counted. Newest raids first.</p>
+      <div class="card scroll att">
+        {standings.length === 0 ? <p class="alt">No attendance yet.</p> : (
+          <table>
             <tr>
-              <td>{s.displayName}{s.alts.length > 0 && <span class="alt"> + {s.alts.join(', ')}</span>}</td>
-              {nights.map((n) => {
-                const cell = s.cells[n.id] ?? 'absent';
-                return <td class={cell === 'absent' ? 'c n' : 'c y'} title={cell === 'alt' ? 'on an alt' : undefined}>{SYMBOL[cell]}</td>;
+              <th class="pin pin-name">Player</th>
+              <th class="c pin pin-score">Score</th>
+              <th class="c">Raids</th><th>Attendance</th>
+              {newestFirst.map((n) => {
+                const [wk, day] = nightLabel(n.nightDate).split(' · ');
+                return <th class="c">{wk}<br /><span class="alt">{day}</span></th>;
               })}
-              <td class="c num">{s.raids}</td>
-              <td>{s.attendancePct}% <span class="bar"><i style={`width:${s.attendancePct}%`}></i></span></td>
-              <td class="c num">{formatScore(s.score)}</td>
             </tr>
-          ))}
-        </table>
-      )}
-      <p class="alt">● present &nbsp; ◐ present on alt &nbsp; ○ absent</p>
-    </div>
-  </section>
+            {standings.map((s) => (
+              <tr>
+                <td class="pin pin-name">{s.displayName}{s.alts.length > 0 && <span class="alt"> + {s.alts.join(', ')}</span>}</td>
+                <td class="c num pin pin-score">{formatScore(s.score)}</td>
+                <td class="c num">{s.raids}</td>
+                <td>{s.attendancePct}% <span class="bar"><i style={`width:${s.attendancePct}%`}></i></span></td>
+                {newestFirst.map((n) => {
+                  const cell = s.cells[n.id] ?? 'absent';
+                  return <td class={cell === 'absent' ? 'c n' : 'c y'} title={cell === 'alt' ? 'on an alt' : undefined}>{SYMBOL[cell]}</td>;
+                })}
+              </tr>
+            ))}
+          </table>
+        )}
+        <p class="alt">● present &nbsp; ◐ present on alt &nbsp; ○ absent</p>
+      </div>
+    </section>
+  );
+};
+
+/** Raid nights shown open in the loot log; older ones fold into a "Show older" section. */
+export const RECENT_LOOT_NIGHTS = 4;
+
+type LootGroup = { nightId: number; date: string; counts: boolean; rows: LogRow[] };
+
+const LootTable = ({ groups }: { groups: LootGroup[] }) => (
+  <table class="loot">
+    {groups.map((g) => (
+      <>
+        <tr class="wk"><td colspan={4} class="week">{nightLabel(g.date)}{!g.counts && <span class="pill pug">pug</span>}</td></tr>
+        {g.rows.map((r) => {
+          const [cls, label] = PILL[r.response];
+          return (
+            <tr class="drop">
+              <td class="it"><a class="item" href={ITEM_URL(r.itemId)}>[{r.itemName}]</a></td>
+              <td class="pl">{r.playerDisplay}{r.altName && <span class="alt"> {r.altName}</span>}</td>
+              <td><span class={`pill ${cls}`}>{label}</span></td>
+              <td class="num">{g.counts ? fmtPoints(r.points) : '0'} pt</td>
+            </tr>
+          );
+        })}
+      </>
+    ))}
+  </table>
 );
 
 const PILL: Record<Response, [string, string]> = {
@@ -50,7 +81,7 @@ const PILL: Record<Response, [string, string]> = {
 };
 
 export const RaidPage = ({ instance, rows, standings }: { instance: string; rows: LogRow[]; standings: Standing[] }) => {
-  const groups: { nightId: number; date: string; counts: boolean; rows: LogRow[] }[] = [];
+  const groups: LootGroup[] = [];
   for (const r of rows) {
     const last = groups[groups.length - 1];
     if (last && last.nightId === r.nightId) last.rows.push(r);
@@ -66,25 +97,12 @@ export const RaidPage = ({ instance, rows, standings }: { instance: string; rows
       <div class="grid2">
         <div class="card scroll">
           <h3>Loot log</h3>
-          {groups.length === 0 ? <p class="alt">No drops yet.</p> : (
-            <table class="loot">
-              {groups.map((g) => (
-                <>
-                  <tr class="wk"><td colspan={4} class="week">{nightLabel(g.date)}{!g.counts && <span class="pill pug">pug</span>}</td></tr>
-                  {g.rows.map((r) => {
-                    const [cls, label] = PILL[r.response];
-                    return (
-                      <tr class="drop">
-                        <td class="it"><a class="item" href={ITEM_URL(r.itemId)}>[{r.itemName}]</a></td>
-                        <td class="pl">{r.playerDisplay}{r.altName && <span class="alt"> {r.altName}</span>}</td>
-                        <td><span class={`pill ${cls}`}>{label}</span></td>
-                        <td class="num">{g.counts ? fmtPoints(r.points) : '0'} pt</td>
-                      </tr>
-                    );
-                  })}
-                </>
-              ))}
-            </table>
+          {groups.length === 0 ? <p class="alt">No drops yet.</p> : <LootTable groups={groups.slice(0, RECENT_LOOT_NIGHTS)} />}
+          {groups.length > RECENT_LOOT_NIGHTS && (
+            <details class="older">
+              <summary>Show {groups.length - RECENT_LOOT_NIGHTS} older nights</summary>
+              <LootTable groups={groups.slice(RECENT_LOOT_NIGHTS)} />
+            </details>
           )}
         </div>
         <div class="card scroll">

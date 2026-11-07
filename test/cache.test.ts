@@ -57,3 +57,11 @@ it('works without a Cache API', async () => {
   }
   expect(renders).toBe(3);
 });
+
+it('query strings share the cached page, so they cannot bypass the cache', async () => {
+  const first = await (await SELF.fetch(BASE + '/?x=1')).text();
+  await commitImport(env.DB, { lootText: '', instancePicks: {}, countsOff: [], attendanceText: JSON.stringify(
+    { addon: 'LimpusAttendance', version: 1, kills: [{ t: 1762290000, zone: 'Molten Core', boss: 'Lucifron', raid: ['Mankee'] }] }) }, '111');
+  expect(await (await SELF.fetch(BASE + '/?x=2')).text()).toBe(first);
+  expect(await (await SELF.fetch(BASE + '/')).text()).toBe(first);
+});

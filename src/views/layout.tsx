@@ -29,6 +29,13 @@ th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;white
 th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
 td.c,th.c{text-align:center}
 .scroll{overflow-x:auto}
+.att{padding-left:0}
+.att table{width:auto;min-width:100%}
+.att .pin{position:sticky;background:var(--panel);z-index:1}
+.att .pin-name{left:0;width:150px;min-width:150px;max-width:150px;white-space:normal;padding-left:16px}
+.att .pin-score{left:150px;box-shadow:6px 0 6px -6px rgba(0,0,0,.6)}
+@media(max-width:600px){.att .pin-name{width:110px;min-width:110px;max-width:110px}.att .pin-score{left:110px}}
+.older summary{cursor:pointer;color:var(--gold);padding:12px 0 4px;font-weight:600}
 .alt{color:var(--muted);font-size:12px}
 .y{color:var(--ok)} .n{color:#4a4450}
 .num{font-variant-numeric:tabular-nums}
