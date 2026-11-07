@@ -30,9 +30,9 @@ export function parseDarklight(text: string): Parsed<AwardInput[]> {
   const warnings: string[] = [];
   data.records.forEach((rec: any, i: number) => {
     const player = typeof rec?.player === 'string' ? rec.player : '';
-    const itemId = Number(rec?.itemId);
-    const t = Number(rec?.timestamp);
-    if (!displayName(player) || !Number.isFinite(itemId) || !rec?.itemId || !Number.isFinite(t)) {
+    const itemId = rec?.itemId;
+    const t = rec?.timestamp;
+    if (!displayName(player) || !Number.isInteger(itemId) || itemId <= 0 || typeof t !== 'number' || !Number.isFinite(t) || t <= 0) {
       warnings.push(`Skipped record ${i + 1}: missing player, item or timestamp.`);
       return;
     }

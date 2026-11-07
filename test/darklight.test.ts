@@ -40,6 +40,16 @@ it('skips records without player or itemId, with a warning each', () => {
   expect(r.ok && r.value).toHaveLength(1);
   expect(r.ok && r.warnings).toHaveLength(2);
 });
+it('skips records with invalid itemId or timestamp (no coercion)', () => {
+  const base = fixtureObj.records[0];
+  const r = parseDarklight(withRecords([
+    { ...base, itemId: null }, { ...base, itemId: '' }, { ...base, itemId: true },
+    { ...base, itemId: 0 }, { ...base, itemId: 1.5 },
+    { ...base, timestamp: 0 }, { ...base, timestamp: null }, { ...base, timestamp: '17' },
+  ]));
+  expect(r.ok && r.value).toHaveLength(0);
+  expect(r.ok && r.warnings).toHaveLength(8);
+});
 it('empty input is an empty list', () => {
   expect(parseDarklight('  ')).toEqual({ ok: true, value: [], warnings: [] });
 });

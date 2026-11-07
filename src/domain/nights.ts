@@ -30,10 +30,11 @@ export function isoWeek(date: string): number {
   return Math.ceil(((dt.getTime() - yearStart) / 86400000 + 1) / 7);
 }
 
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 /** e.g. `Wk 46 · Wed 11 Nov` */
 export function nightLabel(date: string): string {
   const dt = parseDate(date);
-  const wd = new Intl.DateTimeFormat('en-GB', { weekday: 'short', timeZone: 'UTC' }).format(dt);
-  const mon = new Intl.DateTimeFormat('en-GB', { month: 'short', timeZone: 'UTC' }).format(dt);
-  return `Wk ${isoWeek(date)} · ${wd} ${dt.getUTCDate()} ${mon}`;
+  return `Wk ${isoWeek(date)} · ${WEEKDAYS[dt.getUTCDay()]} ${dt.getUTCDate()} ${MONTHS[dt.getUTCMonth()]}`;
 }
