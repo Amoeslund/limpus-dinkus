@@ -116,3 +116,9 @@ describe('public pages', () => {
 
   it('unknown raid slug is 404', async () => { expect((await get('/raid/nope')).status).toBe(404); });
 });
+
+it('every page shows the guild logo and favicon', async () => {
+  const { html } = await get('/');
+  expect(html).toContain('<img src="/logo.png"');
+  expect(html).toContain('<link rel="icon" type="image/png" href="/favicon.png"/>');
+});

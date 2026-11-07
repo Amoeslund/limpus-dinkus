@@ -1,6 +1,8 @@
 {
   "name": "limpus-dinkus",
   "main": "src/index.tsx",
+  // Static files (logo, favicon) are served before the Worker runs.
+  "assets": { "directory": "./public" },
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
   "routes": [

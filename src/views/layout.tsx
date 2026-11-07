@@ -11,7 +11,8 @@ export const CSS = `
 body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,sans-serif}
 a{color:inherit}
 header{display:flex;align-items:center;gap:24px;padding:14px 24px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
-.logo{font-family:Georgia,serif;font-size:22px;color:var(--gold);letter-spacing:.5px;text-decoration:none}
+.logo{font-family:Georgia,serif;font-size:22px;color:var(--gold);letter-spacing:.5px;text-decoration:none;display:inline-flex;align-items:center;gap:10px}
+.logo img{border-radius:6px;display:block;flex:none}
 nav{display:flex;gap:4px;flex-wrap:wrap}
 nav a{color:var(--muted);padding:8px 14px;border-radius:6px;text-decoration:none}
 nav a.on,nav a:hover{background:var(--panel2);color:var(--text)}
@@ -76,11 +77,13 @@ export const Layout = ({ title, nav, children, admin }: { title: string; nav: Na
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <title>{title}</title>
+      <link rel="icon" type="image/png" href="/favicon.png" />
+      <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
     </head>
     <body>
       <header>
-        <a class="logo" href="/">Limpus Dinkus</a>
+        <a class="logo" href="/"><img src="/logo.png" width="36" height="36" alt="" />Limpus Dinkus</a>
         <nav>
           <a href="/" class={nav.active === 'attendance' ? 'on' : ''}>Attendance</a>
           {nav.instances.map((i) => (
