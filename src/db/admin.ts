@@ -51,7 +51,7 @@ export async function createManualNight(db: D1Database, date: string, instances:
   const dt = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(date + 'T12:00:00Z') : null;
   if (!dt || Number.isNaN(dt.getTime()) || dt.toISOString().slice(0, 10) !== date) return fail('Date must be a valid YYYY-MM-DD');
   if (await db.prepare('SELECT 1 AS x FROM raid_night WHERE night_date = ?').bind(date).first())
-    return fail(`A raid night for ${nightLabel(date)} already exists`);
+    return fail(`A raid night for ${nightLabel(date)} already exists — open it on the Nights page to add players.`);
   const keys = [...new Set(present)];
   for (const k of keys) {
     const c = await db.prepare('SELECT status, main_key FROM character WHERE name_key = ?').bind(k).first<{ status: string; main_key: string | null }>();

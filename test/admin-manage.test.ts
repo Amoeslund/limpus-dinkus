@@ -117,7 +117,7 @@ describe('nights', () => {
   it('manual night validation', async () => {
     const dup = await post('/admin/nights/new', { date: NIGHT, instances: '' });
     expect(dup.status).toBe(400);
-    expect(await dup.text()).toContain('A raid night for Wk 45 · Tue 4 Nov already exists');
+    expect(await dup.text()).toContain('A raid night for Wk 45 · Tue 4 Nov already exists — open it on the Nights page to add players.');
     expect((await post('/admin/nights/new', { date: '4/11/2025' })).status).toBe(400);
     expect((await post('/admin/nights/new', { date: '2025-02-31' })).status).toBe(400);
     expect((await post('/admin/nights/new', { date: '2025-11-09', 'present[]': 'ghost' })).status).toBe(400);
