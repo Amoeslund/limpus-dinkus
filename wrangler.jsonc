@@ -1,0 +1,14 @@
+{
+  "name": "limpus-dinkus",
+  "main": "src/index.tsx",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "limpus",
+      "database_id": "00000000-0000-0000-0000-000000000000", // placeholder until Task 13
+      "migrations_dir": "migrations"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+CREATE TABLE character (name_key TEXT PRIMARY KEY, display_name TEXT NOT NULL,
+  main_key TEXT REFERENCES character(name_key), status TEXT NOT NULL DEFAULT 'member',
+  created_at INTEGER NOT NULL);
+CREATE TABLE raid_night (id INTEGER PRIMARY KEY, night_date TEXT NOT NULL UNIQUE,
+  counts INTEGER NOT NULL DEFAULT 1, manual INTEGER NOT NULL DEFAULT 0, instances TEXT);
+CREATE TABLE kill (id INTEGER PRIMARY KEY, night_id INTEGER NOT NULL REFERENCES raid_night(id) ON DELETE CASCADE,
+  t INTEGER NOT NULL, zone TEXT NOT NULL, boss TEXT NOT NULL, UNIQUE(t, boss));
+CREATE TABLE kill_member (kill_id INTEGER NOT NULL REFERENCES kill(id) ON DELETE CASCADE,
+  name_key TEXT NOT NULL, PRIMARY KEY(kill_id, name_key));
+CREATE TABLE night_override (night_id INTEGER NOT NULL REFERENCES raid_night(id) ON DELETE CASCADE,
+  name_key TEXT NOT NULL, present INTEGER NOT NULL, PRIMARY KEY(night_id, name_key));
+CREATE TABLE item (item_id INTEGER PRIMARY KEY, name TEXT NOT NULL, instance TEXT,
+  points REAL NOT NULL DEFAULT 1);
+CREATE TABLE award (darklight_id TEXT PRIMARY KEY, night_id INTEGER NOT NULL REFERENCES raid_night(id) ON DELETE CASCADE,
+  t INTEGER NOT NULL, name_key TEXT NOT NULL, item_id INTEGER NOT NULL REFERENCES item(item_id),
+  response TEXT NOT NULL, instance TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE admin (discord_id TEXT PRIMARY KEY, name TEXT NOT NULL);
+CREATE TABLE import_log (id INTEGER PRIMARY KEY, at INTEGER NOT NULL, by_discord_id TEXT NOT NULL, summary TEXT NOT NULL);
