@@ -35,6 +35,10 @@ td.c,th.c{text-align:center}
 .att .pin-name{left:0;width:150px;min-width:150px;max-width:150px;white-space:normal;padding-left:16px}
 .att .pin-score{left:150px;box-shadow:6px 0 6px -6px rgba(0,0,0,.6)}
 @media(max-width:600px){.att .pin-name{width:110px;min-width:110px;max-width:110px}.att .pin-score{left:110px}}
+button.sort{all:unset;cursor:pointer;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;display:inline-flex;gap:4px;align-items:center}
+button.sort:hover,button.sort.on{color:var(--gold2)}
+button.sort:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:3px}
+button.sort .arrow{font-size:9px}
 .older summary{cursor:pointer;color:var(--gold);padding:12px 0 4px;font-weight:600}
 .alt{color:var(--muted);font-size:12px}
 .y{color:var(--ok)} .n{color:#4a4450}

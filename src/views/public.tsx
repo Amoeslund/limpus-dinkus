@@ -3,6 +3,7 @@ import type { LogRow } from '../db/read';
 import type { Response } from '../domain/darklight';
 import { nightLabel } from '../domain/nights';
 import { formatScore, type Standing } from '../domain/standings';
+import { SORT_SCRIPT, type SortKey } from './attendance-sort';
 
 type Night = { id: number; nightDate: string };
 
@@ -10,6 +11,10 @@ type Night = { id: number; nightDate: string };
 const fmtPoints = (n: number) => String(Math.round(n * 100) / 100);
 
 const SYMBOL = { main: '●', alt: '◐', absent: '○' } as const;
+
+const SortButton = ({ k, label }: { k: SortKey; label: string }) => (
+  <button type="button" class="sort" data-key={k}>{label}<span class="arrow" aria-hidden="true"></span></button>
+);
 
 /** Name and score stay pinned on the left; nights scroll beside them, newest first. */
 export const AttendancePage = ({ standings, nights }: { standings: Standing[]; nights: Night[] }) => {
@@ -20,18 +25,19 @@ export const AttendancePage = ({ standings, nights }: { standings: Standing[]; n
       <p class="sub">Each raid night counts as one raid. Alts count toward their main. Pug raids are not counted. Newest raids first.</p>
       <div class="card scroll att">
         {standings.length === 0 ? <p class="alt">No attendance yet.</p> : (
-          <table>
+          <table data-sortable>
             <tr>
-              <th class="pin pin-name">Player</th>
-              <th class="c pin pin-score">Score</th>
-              <th class="c">Raids</th><th>Attendance</th>
+              <th class="pin pin-name"><SortButton k="name" label="Player" /></th>
+              <th class="c pin pin-score"><SortButton k="score" label="Score" /></th>
+              <th class="c"><SortButton k="raids" label="Raids" /></th>
+              <th><SortButton k="pct" label="Attendance" /></th>
               {newestFirst.map((n) => {
                 const [wk, day] = nightLabel(n.nightDate).split(' · ');
                 return <th class="c">{wk}<br /><span class="alt">{day}</span></th>;
               })}
             </tr>
             {standings.map((s) => (
-              <tr>
+              <tr data-name={s.displayName} data-score={s.score === null ? '' : String(s.score)} data-raids={String(s.raids)} data-pct={String(s.attendancePct)}>
                 <td class="pin pin-name">{s.displayName}{s.alts.length > 0 && <span class="alt"> + {s.alts.join(', ')}</span>}</td>
                 <td class="c num pin pin-score">{formatScore(s.score)}</td>
                 <td class="c num">{s.raids}</td>
@@ -44,8 +50,9 @@ export const AttendancePage = ({ standings, nights }: { standings: Standing[]; n
             ))}
           </table>
         )}
-        <p class="alt">● present &nbsp; ◐ present on alt &nbsp; ○ absent</p>
+        <p class="alt">● present &nbsp; ◐ present on alt &nbsp; ○ absent &nbsp;·&nbsp; Click a column title to sort. Score sorts lowest first.</p>
       </div>
+      <script dangerouslySetInnerHTML={{ __html: SORT_SCRIPT }} />
     </section>
   );
 };
