@@ -49,6 +49,8 @@ Import at least once a week. Darklight keeps only its latest 100 items, so older
 
 Copy the folder `addon/LimpusAttendance` to `F:\Games\World of Warcraft\_forever_\Interface\AddOns\` and `/reload`. Only the person recording attendance needs it.
 
+Only one person should run LimpusAttendance per raid. Kills recorded by two people are counted twice. Players who are offline at a kill are not recorded; add them on the Nights page if needed.
+
 - `/limpus` shows the stored kill count and the date of the last kill.
 - `/limpus export` opens a window with the JSON to copy for `/admin`.
 - `/limpus clear` deletes stored kills after you type `clear`.

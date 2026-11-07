@@ -212,8 +212,9 @@ ev:SetScript("OnEvent", function(_, event, ...)
         if success ~= 1 or not IsInRaid() then return end
         local raid = {}
         for i = 1, GetNumGroupMembers() do
-            local n = GetRaidRosterInfo(i)
-            if n then raid[#raid + 1] = n end
+            -- Offline at the kill = not attending (officers can add players manually).
+            local n, _, _, _, _, _, _, online = GetRaidRosterInfo(i)
+            if n and online then raid[#raid + 1] = n end
         end
         local kills = Kills()
         kills[#kills + 1] = { t = time(), zone = (GetInstanceInfo()), boss = encounterName, raid = raid }
