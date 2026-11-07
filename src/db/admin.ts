@@ -134,6 +134,29 @@ export async function setStatus(db: D1Database, key: string, status: string): Pr
   return ok;
 }
 
+/** Validates main and status first, then writes both, so a 400 never leaves partial state. */
+export async function updateCharacter(db: D1Database, key: string, main: string | null | undefined, status: string | undefined): Promise<Result> {
+  const c = await db.prepare('SELECT display_name, main_key FROM character WHERE name_key = ?').bind(key).first<{ display_name: string; main_key: string | null }>();
+  if (!c) return fail('Unknown character');
+  if (status !== undefined) {
+    if (!(STATUSES as string[]).includes(status)) return fail('Invalid status');
+    if (c.main_key !== null) return fail('Status can only be set on a main');
+  }
+  if (main) {
+    if (main === key) return fail('A character cannot be its own main');
+    const m = await db.prepare('SELECT main_key FROM character WHERE name_key = ?').bind(main).first<{ main_key: string | null }>();
+    if (!m) return fail('Unknown main character');
+    if (m.main_key !== null) return fail('The chosen main is itself an alt');
+    if (await db.prepare('SELECT 1 AS x FROM character WHERE main_key = ? LIMIT 1').bind(key).first())
+      return fail(`${c.display_name} has alts; unlink them first`);
+  }
+  const stmts = [];
+  if (status !== undefined) stmts.push(db.prepare('UPDATE character SET status = ? WHERE name_key = ?').bind(status, key));
+  if (main !== undefined) stmts.push(db.prepare('UPDATE character SET main_key = ? WHERE name_key = ?').bind(main || null, key));
+  if (stmts.length) await db.batch(stmts);
+  return ok;
+}
+
 // ---------- items ----------
 
 export type ItemRow = { itemId: number; name: string; instance: string; points: number; drops: number };
@@ -147,16 +170,22 @@ export async function listItems(db: D1Database, q: string): Promise<ItemRow[]> {
 }
 
 export async function updateItem(db: D1Database, id: number, points: string, instance: string): Promise<Result> {
-  const p = points.trim() === '' ? NaN : Number(points);
-  if (!Number.isFinite(p) || p < 0) return fail('Points must be a number of 0 or more');
-  if (!(await db.prepare('SELECT 1 AS x FROM item WHERE item_id = ?').bind(id).first())) return fail('Unknown item');
+  const pt = points.trim();
+  const p = /^\d+(\.\d+)?$/.test(pt) ? Number(pt) : NaN;
+  if (!Number.isFinite(p)) return fail('Points must be a plain number of 0 or more');
+  const cur = await db.prepare('SELECT instance FROM item WHERE item_id = ?').bind(id).first<{ instance: string | null }>();
+  if (!cur) return fail('Unknown item');
   const inst = instance.trim();
   // An empty instance leaves the stored instance alone (awards need a non-empty one).
-  const stmts = [inst
-    ? db.prepare('UPDATE item SET points = ?, instance = ? WHERE item_id = ?').bind(p, inst, id)
-    : db.prepare('UPDATE item SET points = ? WHERE item_id = ?').bind(p, id)];
-  if (inst) stmts.push(db.prepare('UPDATE award SET instance = ? WHERE item_id = ?').bind(inst, id));
-  await db.batch(stmts);
+  // Awards only move when the instance actually changed.
+  if (!inst || inst === (cur.instance ?? '')) {
+    await db.prepare('UPDATE item SET points = ? WHERE item_id = ?').bind(p, id).run();
+    return ok;
+  }
+  await db.batch([
+    db.prepare('UPDATE item SET points = ?, instance = ? WHERE item_id = ?').bind(p, inst, id),
+    db.prepare('UPDATE award SET instance = ? WHERE item_id = ?').bind(inst, id),
+  ]);
   return ok;
 }
 

@@ -69,6 +69,12 @@ describe('characters', () => {
     expect((await post('/admin/characters/hexa', { status: 'bogus' })).status).toBe(400);
   });
 
+  it('failed character update leaves no partial state', async () => {
+    expect((await post('/admin/characters/hexa', { status: 'guest', main: 'hexa' })).status).toBe(400);
+    const c = await env.DB.prepare("SELECT status FROM character WHERE name_key = 'hexa'").first<any>();
+    expect(c.status).toBe('member');
+  });
+
   it('lists characters, flags new ones, shows status only for mains', async () => {
     await setMain(env.DB, 'hexa', 'zefal');
     const html = await (await get('/admin/characters')).text();
@@ -154,6 +160,13 @@ describe('nights', () => {
     for (const t of ['raid_night', 'kill', 'kill_member', 'award', 'night_override']) expect(await count(t)).toBe(0);
   });
 
+  it('non-numeric ids are 404, not 500', async () => {
+    expect((await get('/admin/nights/abc')).status).toBe(404);
+    expect((await post('/admin/nights/abc/counts', {})).status).toBe(404);
+    expect((await post('/admin/nights/abc/presence', { nameKey: 'x', present: '1' })).status).toBe(404);
+    expect((await post('/admin/nights/abc/delete', {})).status).toBe(404);
+  });
+
   it('detail of an unknown night is 404', async () => {
     expect((await get('/admin/nights/9999')).status).toBe(404);
   });
@@ -172,7 +185,18 @@ describe('items', () => {
     expect(await (await SELF.fetch('https://x/raid/blackwing-lair')).text()).toContain('Item 100');
   });
 
+  it('points-only edit does not move awards that dropped elsewhere', async () => {
+    await env.DB.prepare("UPDATE award SET instance = 'Zul''Gurub' WHERE darklight_id = 'a1'").run();
+    expect((await post('/admin/items/100', { points: '2', instance: 'Molten Core' })).status).toBe(302);
+    const a = await env.DB.prepare("SELECT instance FROM award WHERE darklight_id = 'a1'").first<any>();
+    expect(a.instance).toBe("Zul'Gurub");
+    expect((await standing('Mankee'))!.score).toBe(2);
+  });
+
   it('rejects bad points', async () => {
+    expect((await post('/admin/items/100', { points: '1e3', instance: 'X' })).status).toBe(400);
+    expect((await post('/admin/items/100', { points: '0x10', instance: 'X' })).status).toBe(400);
+    expect((await post('/admin/items/abc', { points: '1', instance: 'X' })).status).toBe(404);
     expect((await post('/admin/items/100', { points: '-1', instance: 'X' })).status).toBe(400);
     expect((await post('/admin/items/100', { points: 'abc', instance: 'X' })).status).toBe(400);
     expect((await post('/admin/items/100', { points: '', instance: 'X' })).status).toBe(400);

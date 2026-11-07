@@ -109,6 +109,8 @@ async function managePage(c: any, title: string, content: any, status: 200 | 400
 const bad = (c: any, message: string, active: string, back: string, status: 400 | 404 = 400) =>
   managePage(c, 'Admin', <ErrorPage message={message} active={active} back={back} />, status);
 const idParam = (c: any): number => Number(c.req.param('id'));
+const validId = (n: number) => Number.isInteger(n) && n > 0;
+const badId = (c: any, active: string, back: string) => bad(c, 'Unknown id', active, back, 404);
 
 // Nights
 adminRoutes.get('/admin/nights', async (c) => {
@@ -124,11 +126,13 @@ adminRoutes.post('/admin/nights/new', async (c) => {
 });
 
 adminRoutes.post('/admin/nights/:id/counts', async (c) => {
+  if (!validId(idParam(c))) return badId(c, 'Nights', '/admin/nights');
   const res = await A.toggleCounts(c.env.DB, idParam(c));
   return res.ok ? c.redirect('/admin/nights') : bad(c, res.error, 'Nights', '/admin/nights');
 });
 
 adminRoutes.get('/admin/nights/:id', async (c) => {
+  if (!validId(idParam(c))) return badId(c, 'Nights', '/admin/nights');
   const night = await A.getNight(c.env.DB, idParam(c));
   if (!night) return bad(c, 'Unknown raid night', 'Nights', '/admin/nights', 404);
   return managePage(c, 'Admin: night', <NightPage night={night} />);
@@ -136,12 +140,14 @@ adminRoutes.get('/admin/nights/:id', async (c) => {
 
 adminRoutes.post('/admin/nights/:id/presence', async (c) => {
   const id = idParam(c);
+  if (!validId(id)) return badId(c, 'Nights', '/admin/nights');
   const b = await body(c);
   const res = await A.setPresence(c.env.DB, id, str(b.nameKey), str(b.present) === '1');
   return res.ok ? c.redirect(`/admin/nights/${id}`) : bad(c, res.error, 'Nights', `/admin/nights/${id}`);
 });
 
 adminRoutes.post('/admin/nights/:id/delete', async (c) => {
+  if (!validId(idParam(c))) return badId(c, 'Nights', '/admin/nights');
   await A.deleteNight(c.env.DB, idParam(c));
   return c.redirect('/admin/nights');
 });
@@ -154,14 +160,8 @@ adminRoutes.post('/admin/characters/:key', async (c) => {
   const key = c.req.param('key');
   const b = await body(c);
   const fail = (m: string) => bad(c, m, 'Characters', '/admin/characters');
-  if (typeof b.status === 'string') { // checked against the state before this request
-    const r = await A.setStatus(c.env.DB, key, b.status);
-    if (!r.ok) return fail(r.error);
-  }
-  if (typeof b.main === 'string') {
-    const r = await A.setMain(c.env.DB, key, b.main === '' ? null : b.main);
-    if (!r.ok) return fail(r.error);
-  }
+  const r = await A.updateCharacter(c.env.DB, key, typeof b.main === 'string' ? b.main : undefined, typeof b.status === 'string' ? b.status : undefined);
+  if (!r.ok) return fail(r.error);
   return c.redirect('/admin/characters');
 });
 
@@ -172,6 +172,7 @@ adminRoutes.get('/admin/items', async (c) => {
 });
 
 adminRoutes.post('/admin/items/:id', async (c) => {
+  if (!validId(idParam(c))) return badId(c, 'Items', '/admin/items');
   const b = await body(c);
   const res = await A.updateItem(c.env.DB, idParam(c), str(b.points), str(b.instance));
   if (!res.ok) return bad(c, res.error, 'Items', '/admin/items');
