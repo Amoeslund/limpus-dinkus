@@ -1,6 +1,7 @@
 import { DEFAULT_POINTS } from '../config';
 import { parseDarklight, type AwardInput } from '../domain/darklight';
-import { groupIntoNights, type NightDraft } from '../domain/grouping';
+import { assignInstance, groupIntoNights, type NightDraft } from '../domain/grouping';
+import type { KillInput } from '../domain/limpus';
 import { parseLimpus } from '../domain/limpus';
 import { nightLabel } from '../domain/nights';
 
@@ -47,9 +48,20 @@ async function plan(db: D1Database, req: ImportRequest): Promise<Plan | { error:
   });
   const drafts = groupIntoNights(att.value, awards);
 
-  const existingNights = new Set(
-    (await selectIn<{ night_date: string }>(db, (ph) => `SELECT night_date FROM raid_night WHERE night_date IN (${ph})`,
-      drafts.map((d) => d.nightDate))).map((r) => r.night_date));
+  const nightDates = drafts.map((d) => d.nightDate);
+  const existingNights = new Map(
+    (await selectIn<{ night_date: string; manual: number; instances: string | null }>(db,
+      (ph) => `SELECT night_date, manual, instances FROM raid_night WHERE night_date IN (${ph})`, nightDates))
+      .map((r) => [r.night_date, r]));
+  // Kills stored by earlier imports also decide award instances (e.g. attendance first, loot later).
+  const storedKills = new Map<string, KillInput[]>();
+  for (const r of await selectIn<{ night_date: string; t: number; zone: string; boss: string }>(db,
+    (ph) => `SELECT n.night_date, k.t, k.zone, k.boss FROM kill k JOIN raid_night n ON n.id = k.night_id WHERE n.night_date IN (${ph})`,
+    nightDates)) {
+    const list = storedKills.get(r.night_date) ?? [];
+    list.push({ t: r.t, zone: r.zone, boss: r.boss, members: [] });
+    storedKills.set(r.night_date, list);
+  }
   const existingAwards = new Set(
     (await selectIn<{ darklight_id: string }>(db, (ph) => `SELECT darklight_id FROM award WHERE darklight_id IN (${ph})`,
       awards.map((a) => a.darklightId))).map((r) => r.darklight_id));
@@ -68,9 +80,15 @@ async function plan(db: D1Database, req: ImportRequest): Promise<Plan | { error:
   const newItems = new Map<number, { name: string; instance: string | null }>();
   const nights = drafts.map((d) => {
     const pick = req.instancePicks[d.nightDate] || null;
+    const existing = existingNights.get(d.nightDate);
+    const manualZones = existing?.manual ? (existing.instances ?? '').split(',').map((z) => z.trim()).filter(Boolean) : [];
+    const nightDefault = manualZones.length === 1 ? manualZones[0] : null;
+    const seenKills = new Set(d.kills.map((k) => `${k.t}|${k.boss}`));
+    const allKills = [...d.kills, ...(storedKills.get(d.nightDate) ?? []).filter((k) => !seenKills.has(`${k.t}|${k.boss}`))];
     const planned: PlannedAward[] = d.awards.map((a) => {
-      const assigned = a.instance || null; // an empty zone counts as no instance
-      const instance = assigned ?? pick ?? itemInstance.get(a.itemId) ?? null;
+      const assigned = assignInstance(a.t, allKills) || null; // an empty zone counts as no instance
+      // Kill zone, then the item's remembered instance, then a manual night's single instance, then the pick.
+      const instance = assigned ?? itemInstance.get(a.itemId) ?? nightDefault ?? pick;
       return { ...a, instance, isNew: !existingAwards.has(a.darklightId) };
     });
     for (const a of planned) {
@@ -90,11 +108,13 @@ async function plan(db: D1Database, req: ImportRequest): Promise<Plan | { error:
       newAwards: planned.filter((a) => a.isNew).length,
       duplicateAwards: planned.filter((a) => !a.isNew).length,
       needsInstance: planned.some((a) => a.isNew && a.instance === null),
-      existing: existingNights.has(d.nightDate),
+      existing: existing !== undefined,
     };
     return { ...d, preview, planned };
   });
-  return { nights, newCharacters, newItems, warnings: [...loot.warnings, ...att.warnings] };
+  const noAttendance = nights.filter((n) => !n.preview.existing && n.preview.players === 0)
+    .map((n) => `No attendance for ${n.preview.label}: untick Counts, or add players on the Nights page after saving.`);
+  return { nights, newCharacters, newItems, warnings: [...loot.warnings, ...att.warnings, ...noAttendance] };
 }
 
 export async function previewImport(db: D1Database, req: ImportRequest): Promise<ImportPreview> {

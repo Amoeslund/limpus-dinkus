@@ -160,4 +160,57 @@ describe('importer', () => {
     expect(p.ok && p.nights[0].duplicateAwards).toBe(120);
     expect(p.ok && p.newCharacters).toEqual([]);
   });
+
+  it('loot-only import after an attendance-only import uses the stored kills', async () => {
+    expect((await commitImport(env.DB, { ...req, lootText: '' }, '111')).ok).toBe(true);
+    const lootOnly: ImportRequest = { lootText, attendanceText: '', instancePicks: {}, countsOff: [] };
+    const p = await previewImport(env.DB, lootOnly);
+    expect(p.ok && p.nights[0].needsInstance).toBe(false);
+    expect((await commitImport(env.DB, lootOnly, '111')).ok).toBe(true);
+    const a = await env.DB.prepare('SELECT DISTINCT instance FROM award').all<{ instance: string }>();
+    expect(a.results.map((x) => x.instance)).toEqual(['Molten Core']);
+  });
+
+  it('remembered item instance beats the night pick', async () => {
+    await env.DB.prepare("INSERT INTO item (item_id, name, instance, points) VALUES (100, 'Item 100', 'Naxxramas', 1)").run();
+    const lootOnly: ImportRequest = { lootText, attendanceText: '', instancePicks: {}, countsOff: [] };
+    const p = await previewImport(env.DB, lootOnly);
+    const date = p.ok ? p.nights[0].nightDate : '';
+    await commitImport(env.DB, { ...lootOnly, instancePicks: { [date]: 'Onyxia' } }, '111');
+    const a = await env.DB.prepare('SELECT darklight_id, instance FROM award ORDER BY darklight_id').all<any>();
+    expect(a.results).toEqual([
+      { darklight_id: 'a1', instance: 'Naxxramas' },
+      { darklight_id: 'a2', instance: 'Onyxia' },
+      { darklight_id: 'a3', instance: 'Onyxia' },
+    ]);
+  });
+
+  it('a manual night with one instance is the default before the pick', async () => {
+    const lootOnly: ImportRequest = { lootText, attendanceText: '', instancePicks: {}, countsOff: [] };
+    const p0 = await previewImport(env.DB, lootOnly);
+    const date = p0.ok ? p0.nights[0].nightDate : '';
+    await env.DB.prepare("INSERT INTO raid_night (night_date, counts, manual, instances) VALUES (?, 1, 1, 'Zul''Gurub')").bind(date).run();
+    const p = await previewImport(env.DB, lootOnly);
+    expect(p.ok && p.nights[0].needsInstance).toBe(false);
+    await commitImport(env.DB, { ...lootOnly, instancePicks: { [date]: 'Onyxia' } }, '111');
+    const a = await env.DB.prepare('SELECT DISTINCT instance FROM award').all<{ instance: string }>();
+    expect(a.results.map((x) => x.instance)).toEqual(["Zul'Gurub"]);
+  });
+
+  it('a manual night with several instances still needs a pick', async () => {
+    const lootOnly: ImportRequest = { lootText, attendanceText: '', instancePicks: {}, countsOff: [] };
+    const p0 = await previewImport(env.DB, lootOnly);
+    const date = p0.ok ? p0.nights[0].nightDate : '';
+    await env.DB.prepare("INSERT INTO raid_night (night_date, counts, manual, instances) VALUES (?, 1, 1, 'Molten Core, Onyxia')").bind(date).run();
+    const p = await previewImport(env.DB, lootOnly);
+    expect(p.ok && p.nights[0].needsInstance).toBe(true);
+  });
+
+  it('warns when a new night has no attendance', async () => {
+    const p = await previewImport(env.DB, { lootText, attendanceText: '', instancePicks: {}, countsOff: [] });
+    const label = p.ok ? p.nights[0].label : '';
+    expect(p.ok && p.warnings).toContain(`No attendance for ${label}: untick Counts, or add players on the Nights page after saving.`);
+    const q = await previewImport(env.DB, req);
+    expect(q.ok && q.warnings.some((w) => w.startsWith('No attendance'))).toBe(false);
+  });
 });
