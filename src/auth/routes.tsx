@@ -69,6 +69,7 @@ authRoutes.get('/auth/callback', async (c) => {
   const code = c.req.query('code');
   // The state cookie is single-use: clear it whatever happens next.
   deleteCookie(c, STATE_COOKIE, { path: STATE_PATH, secure: true });
+  if (c.req.query('error')) return c.text('Login cancelled. Go back and try again.', 400);
   if (!expected || !state || !code || !timingSafeEqual(expected, state)) {
     return c.text('Invalid login state. Go back and try again.', 400);
   }

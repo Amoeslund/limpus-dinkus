@@ -36,7 +36,9 @@ describe('session', () => {
     const [, sig] = t.split('.');
     const forged = btoa(JSON.stringify({ id: '2', name: 'A', exp: 9999999999 })).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
     expect(await verifySession(`${forged}.${sig}`, 's')).toBeNull();
-    expect(await verifySession(`${t.split('.')[0]}.${sig.slice(0, -2)}AA`, 's')).toBeNull();
+    const mid = Math.floor(sig.length / 2);
+    const flipped = sig.slice(0, mid) + (sig[mid] === 'A' ? 'B' : 'A') + sig.slice(mid + 1);
+    expect(await verifySession(`${t.split('.')[0]}.${flipped}`, 's')).toBeNull();
     expect(await verifySession('garbage', 's')).toBeNull();
     expect(await verifySession('', 's')).toBeNull();
     const expired = await signSession({ id: '1', name: 'A' }, 's', -10);
@@ -94,6 +96,14 @@ describe('auth routes', () => {
     expect((await callback('wrong', state)).status).toBe(400);
     expect((await SELF.fetch(`https://x/auth/callback?code=c&state=${state}`, { redirect: 'manual' })).status).toBe(400);
     expect((await SELF.fetch(`https://x/auth/callback?state=${state}`, { headers: { cookie: `ld_oauth_state=${state}` }, redirect: 'manual' })).status).toBe(400);
+  });
+
+  it('callback with Discord error shows Login cancelled and clears state', async () => {
+    const { state } = await startLogin();
+    const r = await SELF.fetch(`https://x/auth/callback?error=access_denied&state=${state}`, { headers: { cookie: `ld_oauth_state=${state}` }, redirect: 'manual' });
+    expect(r.status).toBe(400);
+    expect(await r.text()).toContain('Login cancelled');
+    expect(r.headers.get('set-cookie')).toMatch(/ld_oauth_state=;.*Max-Age=0/i);
   });
 
   it('callback admits bootstrap admin and rejects others', async () => {
