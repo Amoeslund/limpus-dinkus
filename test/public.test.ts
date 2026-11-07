@@ -1,6 +1,7 @@
 import { env, SELF } from 'cloudflare:test';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { commitImport, type ImportRequest } from '../src/db/importer';
+import { adminCookie } from './helpers';
 
 const T1 = 1762290000, T3 = T1 + 7 * 86400; // Wk 45 and Wk 46 of 2025
 const rec = (id: string, t: number, player: string, itemId: number, itemName: string, response = 'BiS') =>
@@ -101,6 +102,14 @@ describe('public pages', () => {
       const r = await SELF.fetch('https://x/raid', { redirect: 'manual' });
       expect(r.status).toBe(302); expect(r.headers.get('location')).toBe('/raid/molten-core');
     });
+  });
+
+  it('HTML pages start with a doctype (no quirks mode)', async () => {
+    expect((await get('/')).html).toMatch(/^<!doctype html>/i);
+    const admin = await SELF.fetch('https://x/admin', { headers: { cookie: await adminCookie() } });
+    expect(admin.status).toBe(200);
+    expect(await admin.text()).toMatch(/^<!doctype html>/i);
+    expect((await get('/raid/nope')).html).toMatch(/^<!doctype html>/i);
   });
 
   it('unknown raid slug is 404', async () => { expect((await get('/raid/nope')).status).toBe(404); });

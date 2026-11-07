@@ -1,4 +1,5 @@
 import type { Child } from 'hono/jsx';
+import { raw } from 'hono/html';
 
 export const CSS = `
 :root{
@@ -57,6 +58,8 @@ td.c,th.c{text-align:center}
 export type NavInfo = { instances: { name: string; slug: string }[]; active?: string };
 
 export const Layout = ({ title, nav, children, admin }: { title: string; nav: NavInfo; children?: Child; admin?: boolean }) => (
+  <>
+  {raw('<!doctype html>')}
   <html lang="en">
     <head>
       <meta charset="utf-8" />
@@ -79,4 +82,5 @@ export const Layout = ({ title, nav, children, admin }: { title: string; nav: Na
       <main>{children}</main>
     </body>
   </html>
+  </>
 );
