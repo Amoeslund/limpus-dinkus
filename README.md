@@ -47,7 +47,9 @@ Import at least once a week. Darklight keeps only its latest 100 items, so older
 
 ## LimpusAttendance addon
 
-Copy the folder `addon/LimpusAttendance` to `F:\Games\World of Warcraft\_forever_\Interface\AddOns\` and `/reload`. Only the person recording attendance needs it.
+Download `LimpusAttendance-vX.Y.Z.zip` from the [latest release](https://github.com/Amoeslund/limpus-dinkus/releases/latest) and unzip it into `World of Warcraft\_forever_\Interface\AddOns\`, so you get `AddOns\LimpusAttendance\`. Then `/reload`. Only the person recording attendance needs it.
+
+To publish a new addon version: push a tag, e.g. `git tag v1.0.1 && git push origin v1.0.1`. The release workflow zips `addon/LimpusAttendance` and attaches it to a GitHub release.
 
 Only one person should run LimpusAttendance per raid. Kills recorded by two people are counted twice. Players who are offline at a kill are not recorded; add them on the Nights page if needed.
 

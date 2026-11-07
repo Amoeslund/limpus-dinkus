@@ -1,0 +1,32 @@
+name: Release addon
+
+# Push a tag like v1.0.0 to publish a GitHub release with the
+# LimpusAttendance addon zipped and ready to drop into Interface/AddOns.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stamp version and zip addon
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cd addon
+          sed -i "/^## Version:/d" LimpusAttendance/LimpusAttendance.toc
+          sed -i "s/^## SavedVariables:/## Version: ${VERSION}\n## SavedVariables:/" LimpusAttendance/LimpusAttendance.toc
+          zip -r "../LimpusAttendance-${GITHUB_REF_NAME}.zip" LimpusAttendance
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "LimpusAttendance-${GITHUB_REF_NAME}.zip" \
+            --title "LimpusAttendance ${GITHUB_REF_NAME}" \
+            --notes "Unzip into \`World of Warcraft/_forever_/Interface/AddOns/\` so you get \`AddOns/LimpusAttendance/\`. Only the person recording attendance (usually the raid leader) needs it. After the raid: \`/limpus export\`, copy, and paste on https://loremforever.com/admin."
