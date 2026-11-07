@@ -1,5 +1,6 @@
 import { ITEM_URL } from '../config';
 import type { LogRow } from '../db/read';
+import type { Response } from '../domain/darklight';
 import { nightLabel } from '../domain/nights';
 import { formatScore, type Standing } from '../domain/standings';
 
@@ -41,7 +42,7 @@ export const AttendancePage = ({ standings, nights }: { standings: Standing[]; n
   </section>
 );
 
-const PILL: Record<string, [string, string]> = {
+const PILL: Record<Response, [string, string]> = {
   BiS: ['p-bis', 'BiS'], Upgrade: ['p-upgrade', 'Upgrade'], Offspec: ['p-os', 'Offspec'],
 };
 
@@ -63,16 +64,16 @@ export const RaidPage = ({ instance, rows, standings }: { instance: string; rows
         <div class="card scroll">
           <h3>Loot log</h3>
           {groups.length === 0 ? <p class="alt">No drops yet.</p> : (
-            <table>
+            <table class="loot">
               {groups.map((g) => (
                 <>
-                  <tr><td colspan={4} class="week">{nightLabel(g.date)}{!g.counts && <span class="pill pug">pug</span>}</td></tr>
+                  <tr class="wk"><td colspan={4} class="week">{nightLabel(g.date)}{!g.counts && <span class="pill pug">pug</span>}</td></tr>
                   {g.rows.map((r) => {
-                    const [cls, label] = PILL[r.response] ?? PILL.Upgrade;
+                    const [cls, label] = PILL[r.response];
                     return (
-                      <tr>
-                        <td><a class="item" href={ITEM_URL(r.itemId)}>[{r.itemName}]</a></td>
-                        <td>{r.playerDisplay}{r.altName && <span class="alt"> {r.altName}</span>}</td>
+                      <tr class="drop">
+                        <td class="it"><a class="item" href={ITEM_URL(r.itemId)}>[{r.itemName}]</a></td>
+                        <td class="pl">{r.playerDisplay}{r.altName && <span class="alt"> {r.altName}</span>}</td>
                         <td><span class={`pill ${cls}`}>{label}</span></td>
                         <td class="num">{r.points} pt</td>
                       </tr>

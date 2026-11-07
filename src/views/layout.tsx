@@ -40,6 +40,16 @@ td.c,th.c{text-align:center}
 .grid2>*{min-width:0}
 @media(max-width:900px){.grid2{grid-template-columns:1fr}}
 .week{color:var(--gold);font-weight:600;padding-top:14px}
+.loot tr.drop td.pl{white-space:normal}
+@media(max-width:600px){
+  .loot,.loot tbody{display:block}
+  .loot tr.wk{display:block}
+  .loot tr.wk td{display:block}
+  .loot tr.drop{display:flex;flex-wrap:wrap;align-items:center;column-gap:10px;padding:7px 0;border-bottom:1px solid var(--line)}
+  .loot tr.drop td{border:0;padding:0 0 2px}
+  .loot tr.drop td.it{flex:0 0 100%;white-space:normal;overflow-wrap:anywhere}
+  .loot tr.drop td.pl{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
+}
 .bar{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;width:80px;display:inline-block;vertical-align:middle;margin-left:6px}
 .bar i{display:block;height:100%;background:var(--gold)}
 `;

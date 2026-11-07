@@ -50,12 +50,24 @@ describe('public pages', () => {
     it('raid page shows loot log and score table sorted lowest first', async () => {
       const { status, html } = await get('/raid/molten-core');
       expect(status).toBe(200);
-      expect(html).toContain('href="https://www.wowhead.com/forever/item=102"');
-      expect(html).toContain('p-upgrade'); expect(html).toContain('p-os'); expect(html).toContain('p-bis');
-      expect(html).toContain('Wk 46');
-      expect(html).toContain('Zefal'); // alt shown after the main
-      const score = html.slice(html.indexOf('Score (all raids)'));
-      expect(score.indexOf('Mankee')).toBeLessThan(score.indexOf('Hexa')); // 0.50 before 1.00;
+      const log = html.slice(html.indexOf('<h3>Loot log</h3>'), html.indexOf('<h3>Score (all raids)</h3>'));
+      expect(log).toContain('href="https://www.wowhead.com/forever/item=102"');
+      expect(log).toContain('<span class="pill p-upgrade">Upgrade</span>');
+      expect(log).toContain('<span class="pill p-os">Offspec</span>');
+      expect(log).toContain('<span class="pill p-bis">BiS</span>');
+      expect(log).toContain('Wk 46');
+      expect(log).toContain('Mankee<span class="alt"> Zefal</span>'); // alt shown after the main
+      expect(log).not.toContain('<span class="pill pug">');
+      const score = html.slice(html.indexOf('<h3>Score (all raids)</h3>'));
+      expect(score.indexOf('Mankee')).toBeLessThan(score.indexOf('Hexa')); // 0.50 before 1.00
+    });
+
+    it('score table puts members with no raids (—) last', async () => {
+      await env.DB.prepare("INSERT INTO character (name_key, display_name, main_key, status, created_at) VALUES ('nobody','Nobody',NULL,'member',0)").run();
+      const { html } = await get('/raid/molten-core');
+      const score = html.slice(html.indexOf('<h3>Score (all raids)</h3>'));
+      expect(score.indexOf('Hexa')).toBeLessThan(score.indexOf('Nobody'));
+      expect(score).toMatch(/Nobody<\/td><td class="c num">0<\/td><td class="c num">0<\/td><td class="c num">—<\/td>/);
     });
 
     it('escapes item names', async () => {
@@ -66,7 +78,7 @@ describe('public pages', () => {
     it('tags non-counting nights as pug', async () => {
       await env.DB.prepare('UPDATE raid_night SET counts=0 WHERE night_date=(SELECT MIN(night_date) FROM raid_night)').run();
       const { html } = await get('/raid/molten-core');
-      expect(html).toContain('pug');
+      expect(html).toContain('<span class="pill pug">pug</span>');
     });
 
     it('/raid redirects to the first instance', async () => {
