@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Limpus Dinkus mockup</title>
+<style>
+  :root{
+    --bg:#121014; --panel:#1c1920; --panel2:#24202a; --line:#332e3a;
+    --text:#e9e4dc; --muted:#9a929f; --gold:#d6ab69; --gold2:#f0cf8f;
+    --bis:#e0803a; --major:#a35ee8; --os:#4f8fe0; --ok:#5fbf6f; --bad:#d65b5b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,sans-serif}
+  .mocknote{background:#2b2316;color:var(--gold2);padding:8px 16px;font-size:13px;border-bottom:1px solid #4a3a20}
+  header{display:flex;align-items:center;gap:24px;padding:14px 24px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .logo{font-family:Georgia,serif;font-size:22px;color:var(--gold);letter-spacing:.5px}
+  nav{display:flex;gap:4px;flex-wrap:wrap}
+  nav button{background:none;border:0;color:var(--muted);padding:8px 14px;border-radius:6px;cursor:pointer;font:inherit}
+  nav button.on,nav button:hover{background:var(--panel2);color:var(--text)}
+  .spacer{flex:1}
+  .login{color:var(--muted);font-size:13px}
+  main{padding:24px;max-width:1300px;margin:0 auto}
+  h1{font-family:Georgia,serif;color:var(--gold2);font-weight:normal;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 20px}
+  .page{display:none}.page.on{display:block}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:20px}
+  .card h3{margin:0 0 12px;font-size:15px;color:var(--gold)}
+  table{border-collapse:collapse;width:100%}
+  th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+  td.c,th.c{text-align:center}
+  .scroll{overflow-x:auto}
+  .alt{color:var(--muted);font-size:12px}
+  .y{color:var(--ok)} .n{color:#4a4450}
+  .num{font-variant-numeric:tabular-nums}
+  .pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;font-weight:600}
+  .p-bis{background:#3c2414;color:var(--bis)} .p-major{background:#2c1c3e;color:var(--major)} .p-os{background:#16263c;color:var(--os)}
+  .item{color:var(--major)} .item.epic{color:#b373ff} .item.rare{color:#3f8cff}
+  .grid2{display:grid;grid-template-columns:1.6fr 1fr;gap:20px}
+  @media(max-width:900px){.grid2{grid-template-columns:1fr}}
+  .tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+  .tabs span{padding:6px 12px;border:1px solid var(--line);border-radius:6px;color:var(--muted);cursor:pointer}
+  .tabs span.on{border-color:var(--gold);color:var(--gold2)}
+  .week{color:var(--gold);font-weight:600;padding-top:14px}
+  .bar{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;width:80px;display:inline-block;vertical-align:middle;margin-left:6px}
+  .bar i{display:block;height:100%;background:var(--gold)}
+  textarea{width:100%;height:110px;background:#0d0b0f;color:#b8b0a5;border:1px solid var(--line);border-radius:6px;padding:10px;font:12px/1.4 Consolas,monospace}
+  .btn{background:var(--gold);color:#1a140c;border:0;border-radius:6px;padding:8px 16px;font-weight:600;cursor:pointer}
+  .btn.ghost{background:none;color:var(--text);border:1px solid var(--line)}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .preview{margin-top:14px;padding:12px;background:var(--panel2);border-radius:8px}
+  .preview b{color:var(--gold2)}
+  select,input[type=number],input[type=text]{background:#0d0b0f;color:var(--text);border:1px solid var(--line);border-radius:5px;padding:4px 8px;font:inherit}
+  input[type=number]{width:60px}
+  .toggle{display:inline-block;width:34px;height:18px;border-radius:9px;background:var(--ok);position:relative;vertical-align:middle}
+  .toggle::after{content:"";position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff}
+  .toggle.off{background:#4a4450}.toggle.off::after{right:auto;left:2px}
+  .matrix td,.matrix th{padding:5px 8px;font-size:12px}
+  .matrix th.v{writing-mode:vertical-rl;transform:rotate(180deg);height:90px}
+  .cell-bis{background:#3c2414;color:var(--bis);text-align:center}
+  .cell-os{background:#16263c;color:var(--os);text-align:center}
+  .opt{border:2px dashed var(--line);border-radius:10px;padding:14px;position:relative}
+  .opt .tag{position:absolute;top:-11px;left:12px;background:var(--bg);padding:0 8px;color:var(--gold);font-weight:600}
+</style>
+</head>
+<body>
+<div class="mocknote">MOCKUP v1: fake data, layout only. Click the tabs at the top.</div>
+<header>
+  <div class="logo">Limpus Dinkus</div>
+  <nav>
+    <button data-p="att" class="on">Attendance</button>
+    <button data-p="raid">Raids</button>
+    <button data-p="admin">Admin</button>
+  </nav>
+  <div class="spacer"></div>
+  <div class="login">Officer? Log in with Discord</div>
+</header>
+
+<main>
+<!-- ATTENDANCE -->
+<section class="page on" id="att">
+  <h1>Attendance</h1>
+  <p class="sub">Each raid night counts as one raid. Alts count toward their main. Pug raids are not counted.</p>
+  <div class="card scroll">
+    <table>
+      <tr><th>Player</th><th class="c">Wk 45<br><span class="alt">Wed 4/11</span></th><th class="c">Wk 45<br><span class="alt">Sun 8/11</span></th><th class="c">Wk 46<br><span class="alt">Wed 11/11</span></th><th class="c">Wk 46<br><span class="alt">Sun 15/11</span></th><th class="c">Wk 47<br><span class="alt">Wed 18/11</span></th><th class="c">Raids</th><th>Attendance</th><th class="c">Score</th></tr>
+      <tr><td>Ildkule</td><td class="c y">●</td><td class="c y">●</td><td class="c y">●</td><td class="c y">●</td><td class="c y">●</td><td class="c num">16</td><td>100% <span class="bar"><i style="width:100%"></i></span></td><td class="c num">0,72</td></tr>
+      <tr><td>Zefal <span class="alt">+ Zefalock</span></td><td class="c y">●</td><td class="c y">●</td><td class="c y">●</td><td class="c y" title="on alt Zefalock">◐</td><td class="c y">●</td><td class="c num">16</td><td>100% <span class="bar"><i style="width:100%"></i></span></td><td class="c num">1,16</td></tr>
+      <tr><td>Mankee</td><td class="c y">●</td><td class="c y">●</td><td class="c n">○</td><td class="c y">●</td><td class="c y">●</td><td class="c num">15</td><td>94% <span class="bar"><i style="width:94%"></i></span></td><td class="c num">1,10</td></tr>
+      <tr><td>Merrydotter</td><td class="c y">●</td><td class="c n">○</td><td class="c y">●</td><td class="c y">●</td><td class="c n">○</td><td class="c num">11</td><td>69% <span class="bar"><i style="width:69%"></i></span></td><td class="c num">1,00</td></tr>
+      <tr><td>Kruse</td><td class="c y">●</td><td class="c y">●</td><td class="c n">○</td><td class="c n">○</td><td class="c y">●</td><td class="c num">9</td><td>56% <span class="bar"><i style="width:56%"></i></span></td><td class="c num">0,17</td></tr>
+      <tr><td>Zarry</td><td class="c n">○</td><td class="c y">●</td><td class="c y">●</td><td class="c n">○</td><td class="c n">○</td><td class="c num">6</td><td>38% <span class="bar"><i style="width:38%"></i></span></td><td class="c num">1,58</td></tr>
+      <tr><td>Audron</td><td class="c n">○</td><td class="c n">○</td><td class="c y">●</td><td class="c n">○</td><td class="c y">●</td><td class="c num">4</td><td>25% <span class="bar"><i style="width:25%"></i></span></td><td class="c num">1,25</td></tr>
+    </table>
+    <p class="alt">● present &nbsp; ◐ present on alt &nbsp; ○ absent</p>
+  </div>
+</section>
+
+<!-- RAID PAGE -->
+<section class="page" id="raid">
+  <div class="tabs"><span class="on">Molten Core</span><span>Blackwing Lair</span><span>Zul'Gurub</span><span>+ new Forever raids</span></div>
+  <h1>Molten Core</h1>
+  <p class="sub">All drops, newest first. The score is the same on every raid page: item points ÷ raids attended.</p>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Loot log</h3>
+      <table>
+        <tr><td colspan="4" class="week">Week 46 · Wed 11 Nov</td></tr>
+        <tr><td class="item epic">[Talisman of Ephemeral Power]</td><td>Mankee</td><td><span class="pill p-bis">BiS</span></td><td class="num">3 pt</td></tr>
+        <tr><td class="item epic">[Mana Igniting Cord]</td><td>Mankee</td><td><span class="pill p-major">Major</span></td><td class="num">1 pt</td></tr>
+        <tr><td class="item epic">[Netherwind Crown]</td><td>Smarttusk</td><td><span class="pill p-os">Offspec</span></td><td class="num">0 pt</td></tr>
+        <tr><td colspan="4" class="week">Week 45 · Wed 4 Nov</td></tr>
+        <tr><td class="item epic">[Choker of the Fire Lord]</td><td>Ildkule</td><td><span class="pill p-bis">BiS</span></td><td class="num">2 pt</td></tr>
+        <tr><td class="item epic">[Nemesis Leggings]</td><td>Merrydotter</td><td><span class="pill p-bis">BiS</span></td><td class="num">1 pt</td></tr>
+        <tr><td class="item epic">[Ring of Spell Power]</td><td>Zefal</td><td><span class="pill p-major">Major</span></td><td class="num">1 pt</td></tr>
+        <tr><td class="item epic">[Staff of Dominance]</td><td>Ozzee</td><td><span class="pill p-os">Offspec</span></td><td class="num">0 pt</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3>Score (all raids)</h3>
+      <table>
+        <tr><th>Player</th><th class="c">Raids</th><th class="c">Points</th><th class="c">Score</th></tr>
+        <tr><td>Kruse</td><td class="c num">9</td><td class="c num">1,5</td><td class="c num">0,17</td></tr>
+        <tr><td>Ildkule</td><td class="c num">16</td><td class="c num">11,5</td><td class="c num">0,72</td></tr>
+        <tr><td>Merrydotter</td><td class="c num">11</td><td class="c num">11</td><td class="c num">1,00</td></tr>
+        <tr><td>Mankee</td><td class="c num">15</td><td class="c num">16,5</td><td class="c num">1,10</td></tr>
+        <tr><td>Zefal</td><td class="c num">16</td><td class="c num">18,5</td><td class="c num">1,16</td></tr>
+        <tr><td>Audron</td><td class="c num">4</td><td class="c num">5</td><td class="c num">1,25</td></tr>
+        <tr><td>Zarry</td><td class="c num">6</td><td class="c num">9,5</td><td class="c num">1,58</td></tr>
+      </table>
+      <p class="alt">Lowest score first, so the people who are "owed" loot are at the top.</p>
+    </div>
+  </div>
+
+  <div class="opt">
+    <span class="tag">Alternative view: item grid like the old sheet</span>
+    <div class="scroll">
+    <table class="matrix">
+      <tr><th>Item</th><th class="v">Kruse</th><th class="v">Mankee</th><th class="v">Zarry</th><th class="v">Ildkule</th><th class="v">Merrydotter</th><th class="v">Zefal</th><th class="v">Ozzee</th></tr>
+      <tr><td class="item epic">Ring of Spell Power</td><td></td><td></td><td></td><td class="cell-bis">w45</td><td></td><td class="cell-bis">w43</td><td></td></tr>
+      <tr><td class="item epic">Choker of the Fire Lord</td><td></td><td></td><td></td><td class="cell-bis">w45</td><td class="cell-bis">w44</td><td></td><td></td></tr>
+      <tr><td class="item epic">Talisman of Ephemeral Power</td><td></td><td class="cell-bis">w46</td><td class="cell-bis">w43</td><td class="cell-bis">w44</td><td></td><td></td><td></td></tr>
+      <tr><td class="item epic">Staff of Dominance</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="cell-os">w45</td></tr>
+    </table>
+    </div>
+  </div>
+</section>
+
+<!-- ADMIN -->
+<section class="page" id="admin">
+  <h1>Admin</h1>
+  <p class="sub">Logged in as an officer via Discord.</p>
+
+  <div class="card">
+    <h3>1. Import after a raid</h3>
+    <div class="row" style="margin-top:0"><b>Loot</b>&nbsp;<span class="alt">from <code>/dlc export</code> and then "Darklight Web (JSON)"</span></div>
+    <textarea>{"guild":"Darklight","addon":"DarklightLC","version":"2.1.13","exportedAt":1762297200,"records":[{"id":"1762295000_Mankee_18820_s12","date":"2026-11-11 21:14","player":"Mankee","itemId":18820,"itemName":"Talisman of Ephemeral Power","response":"BiS"} ...</textarea>
+    <div class="row"><b>Attendance</b>&nbsp;<span class="alt">from <code>/limpus export</code></span></div>
+    <textarea>{"addon":"LimpusAttendance","kills":[{"t":1762290100,"zone":"Molten Core","boss":"Lucifron","raid":["Ildkule","Mankee","Zefalock", ...]} ...</textarea>
+    <div class="row"><button class="btn">Preview import</button></div>
+    <div class="preview">
+      <b>Wed 11 Nov · Week 46</b>: Molten Core (10 bosses), Zul'Gurub (4 bosses)<br>
+      38 players present · 2 new characters (Zefalock, Bobtank) need to be linked<br>
+      14 new items · 86 already imported, skipped<br>
+      <div class="row"><label><span class="toggle"></span> Counts as guild raid</label><button class="btn">Save</button><button class="btn ghost">Cancel</button></div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>2. Raid nights</h3>
+      <table>
+        <tr><th>Night</th><th>Instances</th><th class="c">Players</th><th class="c">Counts</th></tr>
+        <tr><td>Wk 46 · Wed 11/11</td><td>MC, ZG</td><td class="c">38</td><td class="c"><span class="toggle"></span></td></tr>
+        <tr><td>Wk 45 · Sat 7/11</td><td>ZG <span class="alt">(pug)</span></td><td class="c">12</td><td class="c"><span class="toggle off"></span></td></tr>
+        <tr><td>Wk 45 · Wed 4/11</td><td>MC</td><td class="c">40</td><td class="c"><span class="toggle"></span></td></tr>
+      </table>
+      <p class="alt">Click a night to add or remove players by hand.</p>
+    </div>
+    <div class="card">
+      <h3>3. Characters</h3>
+      <table>
+        <tr><th>Character</th><th>Main</th></tr>
+        <tr><td>Zefalock <span class="pill p-bis">new</span></td><td><select><option>Zefal</option></select></td></tr>
+        <tr><td>Bobtank <span class="pill p-bis">new</span></td><td><select><option>(is a main)</option></select></td></tr>
+        <tr><td>Mankeeheal</td><td><select><option>Mankee</option></select></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>4. Item points</h3>
+    <div class="row" style="margin-top:0"><input type="text" placeholder="Search item..."> <span class="alt">New items start at 1 point. Offspec is always 0.</span></div>
+    <table style="margin-top:10px">
+      <tr><th>Item</th><th>Instance</th><th class="c">Points</th><th class="c">Times dropped</th></tr>
+      <tr><td class="item epic">Talisman of Ephemeral Power</td><td>Molten Core</td><td class="c"><input type="number" value="3"></td><td class="c">4</td></tr>
+      <tr><td class="item epic">Choker of the Fire Lord</td><td>Molten Core</td><td class="c"><input type="number" value="2"></td><td class="c">2</td></tr>
+      <tr><td class="item epic">Ring of Spell Power</td><td>Molten Core</td><td class="c"><input type="number" value="1"></td><td class="c">3</td></tr>
+    </table>
+  </div>
+</section>
+</main>
+
+<script>
+  document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
+    document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id===b.dataset.p));
+  });
+</script>
+</body>
+</html>
