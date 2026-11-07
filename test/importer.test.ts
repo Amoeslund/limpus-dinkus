@@ -65,6 +65,7 @@ describe('importer', () => {
     await commitImport(env.DB, req, '111');
     const rows = await env.DB.prepare("SELECT * FROM character WHERE name_key='mankee'").all<any>();
     expect(rows.results).toHaveLength(1);
+    expect(rows.results[0].display_name).toBe('Mankee');
     expect(rows.results[0].created_at).toBeGreaterThan(1_700_000_000);
     expect(rows.results[0].status).toBe('member');
   });
@@ -96,9 +97,8 @@ describe('importer', () => {
   });
 
   it('countsOff marks new nights as not counting but leaves existing nights alone', async () => {
-    const date = '2025-11-04';
     const pv = await previewImport(env.DB, req);
-    const nd = pv.ok ? pv.nights[0].nightDate : date;
+    const nd = pv.ok ? pv.nights[0].nightDate : '';
     await commitImport(env.DB, { ...req, countsOff: [nd] }, '111');
     expect((await env.DB.prepare('SELECT counts FROM raid_night').first<{ counts: number }>())!.counts).toBe(0);
     await env.DB.prepare('UPDATE raid_night SET counts=1').run();
@@ -128,5 +128,36 @@ describe('importer', () => {
     expect(log.by_discord_id).toBe('111');
     expect(r.ok && r.summary).toBe(log.summary);
     expect(log.summary).toBe('1 night, 3 new items, 3 new characters');
+  });
+
+  it('kill-assigned instance beats the night pick', async () => {
+    const p = await previewImport(env.DB, req);
+    const date = p.ok ? p.nights[0].nightDate : '';
+    await commitImport(env.DB, { ...req, instancePicks: { [date]: 'Onyxia' } }, '111');
+    const a = await env.DB.prepare("SELECT count(*) n FROM award WHERE instance <> 'Molten Core'").first<{ n: number }>();
+    expect(a!.n).toBe(0);
+  });
+
+  it('existing item instance is not overwritten', async () => {
+    await env.DB.prepare("INSERT INTO item (item_id, name, instance, points) VALUES (100, 'Item 100', 'Naxxramas', 3)").run();
+    await commitImport(env.DB, req, '111');
+    const i = await env.DB.prepare('SELECT instance, points FROM item WHERE item_id=100').first<any>();
+    expect(i).toEqual({ instance: 'Naxxramas', points: 3 });
+  });
+
+  it('handles more than 80 characters and awards in one import', async () => {
+    const names = Array.from({ length: 120 }, (_, i) => `Player${i}`);
+    const r: ImportRequest = {
+      lootText: loot(names.map((n, i) => rec(`b${i}`, T1 + i, n, 1000 + i))),
+      attendanceText: att([{ t: T1 - 10, zone: 'Molten Core', boss: 'Garr', raid: names }]),
+      instancePicks: {}, countsOff: [],
+    };
+    expect((await commitImport(env.DB, r, '111')).ok).toBe(true);
+    expect(await count('award')).toBe(120);
+    expect(await count('character')).toBe(120);
+    expect(await count('kill_member')).toBe(120);
+    const p = await previewImport(env.DB, r);
+    expect(p.ok && p.nights[0].duplicateAwards).toBe(120);
+    expect(p.ok && p.newCharacters).toEqual([]);
   });
 });

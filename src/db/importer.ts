@@ -133,20 +133,22 @@ export async function commitImport(db: D1Database, req: ImportRequest, byDiscord
     for (const k of n.kills) {
       st.push(db.prepare(`INSERT OR IGNORE INTO kill (night_id, t, zone, boss) VALUES (${nightId}, ?, ?, ?)`)
         .bind(n.nightDate, k.t, k.zone, k.boss));
-      for (const m of k.members) {
-        st.push(db.prepare('INSERT OR IGNORE INTO kill_member (kill_id, name_key) VALUES ((SELECT id FROM kill WHERE t = ? AND boss = ?), ?)')
-          .bind(k.t, k.boss, m.nameKey));
-      }
+      st.push(db.prepare('INSERT OR IGNORE INTO kill_member (kill_id, name_key) SELECT (SELECT id FROM kill WHERE t = ? AND boss = ?), value FROM json_each(?)')
+        .bind(k.t, k.boss, JSON.stringify(k.members.map((m) => m.nameKey))));
     }
     for (const a of n.planned) {
       if (!a.isNew) continue;
       st.push(db.prepare(`INSERT OR IGNORE INTO award (darklight_id, night_id, t, name_key, item_id, response, instance) VALUES (?, ${nightId}, ?, ?, ?, ?, ?)`)
-        .bind(a.darklightId, n.nightDate, a.t, a.nameKey, a.itemId, a.response, a.instance!));
+        .bind(a.darklightId, n.nightDate, a.t, a.nameKey, a.itemId, a.response, a.instance!)); // non-null: commit rejected needsInstance above
     }
   }
   const newAwards = p.nights.reduce((s, n) => s + n.preview.newAwards, 0);
   const summary = `${plural(p.nights.length, 'night', 'nights')}, ${plural(newAwards, 'new item', 'new items')}, ${plural(p.newCharacters.length, 'new character', 'new characters')}`;
   st.push(db.prepare('INSERT INTO import_log (at, by_discord_id, summary) VALUES (?, ?, ?)').bind(now, byDiscordId, summary));
-  await db.batch(st);
+  try {
+    await db.batch(st);
+  } catch (e) {
+    return { ok: false, error: 'Import failed: ' + (e instanceof Error ? e.message : String(e)) };
+  }
   return { ok: true, summary };
 }
