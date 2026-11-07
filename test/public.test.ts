@@ -22,6 +22,8 @@ const get = async (p: string) => { const r = await SELF.fetch('https://x' + p); 
 const clear = async () => {
   for (const t of ['award', 'item', 'kill_member', 'kill', 'night_override', 'raid_night', 'character', 'import_log'])
     await env.DB.prepare(`DELETE FROM ${t}`).run();
+  // Public pages are cached for 60 s; drop them so each test sees its own data.
+  for (const p of ['/', '/raid', '/raid/molten-core']) await caches.default.delete('https://x' + p);
 };
 
 describe('public pages', () => {

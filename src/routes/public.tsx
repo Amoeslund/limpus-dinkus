@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import type { Env } from '../env';
+import { pageCache } from '../http/page-cache';
 import { listInstances, loadRaidLog, loadStandingsInput } from '../db/read';
 import { computeStandings } from '../domain/standings';
 import { Layout } from '../views/layout';
@@ -7,7 +8,7 @@ import { AttendancePage, NoRaidsPage, RaidPage } from '../views/public';
 
 export const publicRoutes = new Hono<{ Bindings: Env }>();
 
-publicRoutes.get('/', async (c) => {
+publicRoutes.get('/', pageCache(), async (c) => {
   const input = await loadStandingsInput(c.env.DB);
   const instances = await listInstances(c.env.DB);
   const nights = input.nights.filter((n) => n.counts).sort((a, b) => a.nightDate.localeCompare(b.nightDate));
@@ -18,13 +19,13 @@ publicRoutes.get('/', async (c) => {
   );
 });
 
-publicRoutes.get('/raid', async (c) => {
+publicRoutes.get('/raid', pageCache(), async (c) => {
   const instances = await listInstances(c.env.DB);
   if (instances.length > 0) return c.redirect(`/raid/${instances[0].slug}`);
   return c.html(<Layout title="Limpus Dinkus" nav={{ instances }}><NoRaidsPage /></Layout>);
 });
 
-publicRoutes.get('/raid/:slug', async (c) => {
+publicRoutes.get('/raid/:slug', pageCache(), async (c) => {
   const slug = c.req.param('slug');
   const instances = await listInstances(c.env.DB);
   const log = await loadRaidLog(c.env.DB, slug);
