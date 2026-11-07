@@ -81,6 +81,22 @@ describe('public pages', () => {
       expect(html).toContain('<span class="pill pug">pug</span>');
     });
 
+    it('loot on pug nights shows 0 pt', async () => {
+      await env.DB.prepare('UPDATE raid_night SET counts=0').run();
+      const { html } = await get('/raid/molten-core');
+      const log = html.slice(html.indexOf('<h3>Loot log</h3>'), html.indexOf('<h3>Score (all raids)</h3>'));
+      expect(log).toContain('<td class="num">0 pt</td>');
+      expect(log).not.toContain('<td class="num">1 pt</td>');
+    });
+
+    it('rounds displayed points to two decimals', async () => {
+      await env.DB.prepare('UPDATE item SET points = 0.1 + 0.2 WHERE item_id=100').run();
+      const { html } = await get('/raid/molten-core');
+      expect(html).not.toContain('0.30000000000000004');
+      expect(html).toContain('<td class="num">0.3 pt</td>');
+      expect(html).toMatch(/Mankee<\/td><td class="c num">\d+<\/td><td class="c num">0.3<\/td>/);
+    });
+
     it('/raid redirects to the first instance', async () => {
       const r = await SELF.fetch('https://x/raid', { redirect: 'manual' });
       expect(r.status).toBe(302); expect(r.headers.get('location')).toBe('/raid/molten-core');

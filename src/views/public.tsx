@@ -6,6 +6,9 @@ import { formatScore, type Standing } from '../domain/standings';
 
 type Night = { id: number; nightDate: string };
 
+/** At most two decimals, no float noise (0.1 + 0.2 shows as 0.3). */
+const fmtPoints = (n: number) => String(Math.round(n * 100) / 100);
+
 const SYMBOL = { main: '●', alt: '◐', absent: '○' } as const;
 
 export const AttendancePage = ({ standings, nights }: { standings: Standing[]; nights: Night[] }) => (
@@ -75,7 +78,7 @@ export const RaidPage = ({ instance, rows, standings }: { instance: string; rows
                         <td class="it"><a class="item" href={ITEM_URL(r.itemId)}>[{r.itemName}]</a></td>
                         <td class="pl">{r.playerDisplay}{r.altName && <span class="alt"> {r.altName}</span>}</td>
                         <td><span class={`pill ${cls}`}>{label}</span></td>
-                        <td class="num">{r.points} pt</td>
+                        <td class="num">{g.counts ? fmtPoints(r.points) : '0'} pt</td>
                       </tr>
                     );
                   })}
@@ -89,7 +92,7 @@ export const RaidPage = ({ instance, rows, standings }: { instance: string; rows
           <table>
             <tr><th>Player</th><th class="c">Raids</th><th class="c">Points</th><th class="c">Score</th></tr>
             {score.map((s) => (
-              <tr><td>{s.displayName}</td><td class="c num">{s.raids}</td><td class="c num">{s.points}</td><td class="c num">{formatScore(s.score)}</td></tr>
+              <tr><td>{s.displayName}</td><td class="c num">{s.raids}</td><td class="c num">{fmtPoints(s.points)}</td><td class="c num">{formatScore(s.score)}</td></tr>
             ))}
           </table>
           <p class="alt">Lowest score first, so the people who are "owed" loot are at the top.</p>
