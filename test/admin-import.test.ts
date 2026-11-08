@@ -24,7 +24,7 @@ const post = async (path: string, fields: Record<string, string>) =>
 const get = async (path: string) => SELF.fetch('https://x' + path, { headers: { cookie: await adminCookie() } });
 
 beforeEach(async () => {
-  for (const t of ['award', 'item', 'kill_member', 'kill', 'night_override', 'raid_night', 'character', 'import_log'])
+  for (const t of ['award', 'item', 'kill_member', 'kill', 'night_override', 'raid_night', 'character', 'import_log', 'epgp_standing', 'epgp_meta'])
     await env.DB.prepare(`DELETE FROM ${t}`).run();
 });
 
@@ -106,5 +106,25 @@ describe('admin import', () => {
     const html = await (await get('/admin?imported=' + encodeURIComponent('<script>x</script>'))).text();
     expect(html).not.toContain('<script>x</script>');
     expect(html).toContain('&lt;script&gt;');
+  });
+
+  it('EPGP standings: textarea, preview counts and commit', async () => {
+    expect(await (await get('/admin')).text()).toContain('name="epgpText"');
+    const epgpText = 'Name,Class,EP,GP\nMankee,Warrior,100,50\nZefal,Warlock,80,40';
+    const pv = await post('/admin/import/preview', { lootText: '', attendanceText: '', epgpText });
+    expect(pv.status).toBe(200);
+    const html = await pv.text();
+    expect(html).toContain('EPGP standings: 2 rows, 2 new characters, 0 alt rows skipped');
+    expect(html).toMatch(/<textarea name="epgpText" hidden[^>]*>Name,Class,EP,GP/);
+    expect(await count('epgp_standing')).toBe(0);
+    const r = await post('/admin/import/commit', { lootText: '', attendanceText: '', epgpText });
+    expect(r.status).toBe(302);
+    expect(await count('epgp_standing')).toBe(2);
+  });
+
+  it('bad EPGP CSV shows the parser error', async () => {
+    const r = await post('/admin/import/preview', { lootText: '', attendanceText: '', epgpText: 'Name,EP,GP' });
+    expect(r.status).toBe(400);
+    expect(await r.text()).toContain('EPGP standings:');
   });
 });

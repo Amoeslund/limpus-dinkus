@@ -58,3 +58,17 @@ export async function lastImportAt(db: D1Database): Promise<number | null> {
   const r = await db.prepare('SELECT MAX(at) AS at FROM import_log').first<{ at: number | null }>();
   return r?.at ?? null;
 }
+
+export type EpgpStanding = { ep: number; gp: number; class: string | null };
+
+/** The latest EPGP Forever standings snapshot, keyed by character name key. */
+export async function loadEpgp(db: D1Database): Promise<{ rows: Map<string, EpgpStanding>; importedAt: number | null }> {
+  const [rows, meta] = await db.batch([
+    db.prepare('SELECT name_key, class, ep, gp FROM epgp_standing ORDER BY name_key'),
+    db.prepare('SELECT imported_at FROM epgp_meta WHERE id = 1'),
+  ]);
+  return {
+    rows: new Map((rows.results as any[]).map((r) => [r.name_key as string, { ep: r.ep, gp: r.gp, class: r.class ?? null }])),
+    importedAt: (meta.results as any[])[0]?.imported_at ?? null,
+  };
+}

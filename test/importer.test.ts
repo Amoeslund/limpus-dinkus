@@ -24,7 +24,7 @@ const count = async (table: string) =>
   (await env.DB.prepare(`SELECT count(*) n FROM ${table}`).first<{ n: number }>())!.n;
 
 beforeEach(async () => {
-  for (const t of ['award', 'item', 'kill_member', 'kill', 'night_override', 'raid_night', 'character', 'import_log'])
+  for (const t of ['award', 'item', 'kill_member', 'kill', 'night_override', 'raid_night', 'character', 'import_log', 'epgp_standing', 'epgp_meta'])
     await env.DB.prepare(`DELETE FROM ${t}`).run();
 });
 
@@ -212,5 +212,69 @@ describe('importer', () => {
     expect(p.ok && p.warnings).toContain(`No attendance for ${label}: untick Counts, or add players on the Nights page after saving.`);
     const q = await previewImport(env.DB, req);
     expect(q.ok && q.warnings.some((w) => w.startsWith('No attendance'))).toBe(false);
+  });
+
+  describe('EPGP standings', () => {
+    const epgpOnly = (epgpText: string): ImportRequest => ({ lootText: '', attendanceText: '', epgpText, instancePicks: {}, countsOff: [] });
+    const standings = async () =>
+      (await env.DB.prepare('SELECT name_key, class, ep, gp FROM epgp_standing ORDER BY name_key').all<any>()).results;
+
+    it('preview counts rows, new characters and skipped alts without writing', async () => {
+      await env.DB.prepare("INSERT INTO character (name_key, display_name, created_at) VALUES ('mankee', 'Mankee', 1)").run();
+      await env.DB.prepare("INSERT INTO character (name_key, display_name, main_key, created_at) VALUES ('mankeealt', 'Mankeealt', 'mankee', 1)").run();
+      const p = await previewImport(env.DB, epgpOnly('Name,Class,EP,GP\nMankee,Warrior,100,50\nMankeealt,Mage,100,50\nNewbie-Forever,Rogue,10,5'));
+      expect(p.ok).toBe(true);
+      if (!p.ok) return;
+      expect(p.epgp).toEqual({ rows: 2, newCharacters: 1, altsSkipped: 1 });
+      expect(p.newCharacters).toEqual(['Newbie']);
+      expect(p.nights).toEqual([]);
+      expect(await count('epgp_standing')).toBe(0);
+      expect(await count('character')).toBe(2);
+    });
+
+    it('preview has no epgp section when the CSV is empty', async () => {
+      const p = await previewImport(env.DB, req);
+      expect(p.ok && p.epgp).toBeNull();
+    });
+
+    it('commit replaces the previous snapshot, skips alts, creates mains and stores the time', async () => {
+      await env.DB.prepare("INSERT INTO character (name_key, display_name, created_at) VALUES ('mankee', 'Mankee', 1)").run();
+      await env.DB.prepare("INSERT INTO character (name_key, display_name, main_key, created_at) VALUES ('mankeealt', 'Mankeealt', 'mankee', 1)").run();
+      expect((await commitImport(env.DB, epgpOnly('Mankee,100,50\nOld,1,1'), '111')).ok).toBe(true);
+      const before = Math.floor(Date.now() / 1000);
+      const r = await commitImport(env.DB, epgpOnly('Name,Class,EP,GP\nMankee,Warrior,120.5,60\nMankeealt,Mage,1,1\nNewbie,Rogue,10,0'), '111');
+      expect(r.ok).toBe(true);
+      expect(await standings()).toEqual([
+        { name_key: 'mankee', class: 'Warrior', ep: 120.5, gp: 60 },
+        { name_key: 'newbie', class: 'Rogue', ep: 10, gp: 0 },
+      ]);
+      const meta = await env.DB.prepare('SELECT id, imported_at FROM epgp_meta').all<any>();
+      expect(meta.results).toHaveLength(1);
+      expect(meta.results[0].imported_at).toBeGreaterThanOrEqual(before);
+      const newbie = await env.DB.prepare("SELECT display_name, main_key, status FROM character WHERE name_key='newbie'").first<any>();
+      expect(newbie).toEqual({ display_name: 'Newbie', main_key: null, status: 'member' });
+      expect(r.ok && r.summary).toBe('1 new character, 2 EPGP standings');
+    });
+
+    it('an import without EPGP leaves the standings alone', async () => {
+      await commitImport(env.DB, epgpOnly('Mankee,100,50'), '111');
+      await commitImport(env.DB, req, '111');
+      expect(await count('epgp_standing')).toBe(1);
+    });
+
+    it('commit together with loot and attendance in one go', async () => {
+      const r = await commitImport(env.DB, { ...req, epgpText: 'Mankee,100,50\nZefal,80,40' }, '111');
+      expect(r.ok).toBe(true);
+      expect(await count('award')).toBe(3);
+      expect(await count('epgp_standing')).toBe(2);
+      expect(await count('character')).toBe(3);
+    });
+
+    it('prefixes parser errors and accepts EPGP as the only export', async () => {
+      const e = await previewImport(env.DB, epgpOnly('Name,Class,EP,GP\n'));
+      expect(!e.ok && e.error.startsWith('EPGP standings: ')).toBe(true);
+      const w = await previewImport(env.DB, epgpOnly('Zefal,1,1\nMankee,abc,5'));
+      expect(w.ok && w.warnings.some((x) => x.includes('Mankee'))).toBe(true);
+    });
   });
 });

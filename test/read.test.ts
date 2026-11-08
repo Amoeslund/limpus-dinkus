@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { commitImport, type ImportRequest } from '../src/db/importer';
-import { lastImportAt, listInstances, loadRaidLog, loadStandingsInput } from '../src/db/read';
+import { lastImportAt, listInstances, loadEpgp, loadRaidLog, loadStandingsInput } from '../src/db/read';
 
 const T1 = 1762290000, T2 = T1 + 3000, T3 = T1 + 7 * 86400; // two Nov 2025 nights, a week apart
 const rec = (id: string, t: number, player: string, itemId: number, response = 'BiS') =>
@@ -26,7 +26,7 @@ const req: ImportRequest = {
 };
 
 beforeEach(async () => {
-  for (const t of ['award', 'item', 'kill_member', 'kill', 'night_override', 'raid_night', 'character', 'import_log'])
+  for (const t of ['award', 'item', 'kill_member', 'kill', 'night_override', 'raid_night', 'character', 'import_log', 'epgp_standing', 'epgp_meta'])
     await env.DB.prepare(`DELETE FROM ${t}`).run();
   await commitImport(env.DB, req, '111');
   await env.DB.prepare("UPDATE character SET main_key='mankee' WHERE name_key='zefal'").run();
@@ -87,5 +87,17 @@ describe('read queries', () => {
     expect(await lastImportAt(env.DB)).toBeGreaterThan(1_700_000_000);
     await env.DB.prepare('DELETE FROM import_log').run();
     expect(await lastImportAt(env.DB)).toBeNull();
+  });
+
+  it('loadEpgp returns the standings by name key and the import time', async () => {
+    expect(await loadEpgp(env.DB)).toEqual({ rows: new Map(), importedAt: null });
+    await commitImport(env.DB, { lootText: '', attendanceText: '', epgpText: 'Name,Class,EP,GP\nMankee,Warrior,100,40\nHexa,,5.5,0',
+      instancePicks: {}, countsOff: [] }, '111');
+    const e = await loadEpgp(env.DB);
+    expect(e.importedAt).toBeGreaterThan(1_700_000_000);
+    expect([...e.rows]).toEqual([
+      ['hexa', { ep: 5.5, gp: 0, class: null }],
+      ['mankee', { ep: 100, gp: 40, class: 'Warrior' }],
+    ]);
   });
 });

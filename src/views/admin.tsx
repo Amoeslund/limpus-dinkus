@@ -67,7 +67,7 @@ const NightRow = ({ n, instances, st }: { n: NightPreview; instances: string[]; 
 );
 
 export const ImportPage = (p: {
-  lootText: string; attendanceText: string; lastImport: string | null; stale: boolean; staleDays: number;
+  lootText: string; attendanceText: string; epgpText: string; lastImport: string | null; stale: boolean; staleDays: number;
   imported?: string; error?: string; preview?: ImportPreview & { ok: true }; instances: string[]; state: PickState;
 }) => (
   <>
@@ -93,13 +93,22 @@ export const ImportPage = (p: {
         <textarea name="lootText" spellcheck={false}>{p.lootText}</textarea>
         <div class="row"><b>Attendance</b> <span class="alt">from <code>/limpus export</code></span></div>
         <textarea name="attendanceText" spellcheck={false}>{p.attendanceText}</textarea>
+        <div class="row"><b>EPGP Forever standings (CSV)</b> <span class="alt">from the EPGP Forever CSV tools, standings export (<code>Name,Class,EP,GP</code>). Replaces the current standings.</span></div>
+        <textarea name="epgpText" spellcheck={false}>{p.epgpText}</textarea>
         <div class="row"><button class="btn" type="submit">Preview import</button></div>
       </form>
       {p.preview ? (
         <form method="post" action="/admin/import/commit" class="preview">
           <textarea name="lootText" hidden>{p.lootText}</textarea>
           <textarea name="attendanceText" hidden>{p.attendanceText}</textarea>
+          <textarea name="epgpText" hidden>{p.epgpText}</textarea>
           {p.preview.nights.map((n) => <NightRow n={n} instances={p.instances} st={p.state} />)}
+          {p.preview.epgp ? (
+            <p>
+              EPGP standings: {p.preview.epgp.rows} rows, {p.preview.epgp.newCharacters} new characters, {p.preview.epgp.altsSkipped} alt rows skipped.
+              <span class="alt"> Saving replaces all current standings.</span>
+            </p>
+          ) : null}
           {p.preview.newCharacters.length > 0 ? (
             <p>{p.preview.newCharacters.length} new characters need to be linked: {p.preview.newCharacters.join(', ')}</p>
           ) : null}

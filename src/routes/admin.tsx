@@ -18,7 +18,7 @@ const OTHER = '__other';
 const emptyState = (): PickState => ({ instance: {}, other: {}, countsOff: [] });
 
 type RenderOpts = {
-  lootText?: string; attendanceText?: string; imported?: string; error?: string;
+  lootText?: string; attendanceText?: string; epgpText?: string; imported?: string; error?: string;
   preview?: ImportPreview & { ok: true }; state?: PickState; status?: 200 | 400;
 };
 
@@ -31,7 +31,7 @@ async function renderImport(c: any, opts: RenderOpts) {
     <Layout title="Admin" nav={{ instances }} admin>
       <style dangerouslySetInnerHTML={{ __html: ADMIN_CSS }} />
       <ImportPage
-        lootText={opts.lootText ?? ''} attendanceText={opts.attendanceText ?? ''}
+        lootText={opts.lootText ?? ''} attendanceText={opts.attendanceText ?? ''} epgpText={opts.epgpText ?? ''}
         lastImport={at === null ? null : formatDateTime(at)} stale={stale} staleDays={STALE_IMPORT_DAYS}
         imported={opts.imported} error={opts.error} preview={opts.preview}
         instances={instances.map((i) => i.name)} state={opts.state ?? emptyState()}
@@ -60,7 +60,7 @@ async function readForm(c: any): Promise<{ req: ImportRequest; state: PickState 
     const v = m ? str(body[key]).trim() : '';
     if (m && v) { picks[m[1]] = v; state.other[m[1]] = v; }
   }
-  const req: ImportRequest = { lootText: str(body.lootText), attendanceText: str(body.attendanceText), instancePicks: picks, countsOff: [] };
+  const req: ImportRequest = { lootText: str(body.lootText), attendanceText: str(body.attendanceText), epgpText: str(body.epgpText), instancePicks: picks, countsOff: [] };
   const pv = await previewImport(c.env.DB, req);
   if (pv.ok) {
     const on = new Set(Object.keys(body).map((k) => /^counts\[(.+)\]$/.exec(k)?.[1]).filter((d): d is string => !!d));
@@ -74,7 +74,7 @@ adminRoutes.get('/admin', (c) => renderImport(c, { imported: c.req.query('import
 
 adminRoutes.post('/admin/import/preview', async (c) => {
   const body = (await c.req.parseBody({ all: true })) as Record<string, unknown>;
-  const req: ImportRequest = { lootText: str(body.lootText), attendanceText: str(body.attendanceText), instancePicks: {}, countsOff: [] };
+  const req: ImportRequest = { lootText: str(body.lootText), attendanceText: str(body.attendanceText), epgpText: str(body.epgpText), instancePicks: {}, countsOff: [] };
   const preview = await previewImport(c.env.DB, req);
   if (!preview.ok) return renderImport(c, { ...req, error: preview.error, status: 400 });
   return renderImport(c, { ...req, preview });
@@ -86,7 +86,7 @@ adminRoutes.post('/admin/import/commit', async (c) => {
   if (res.ok) return c.redirect('/admin?imported=' + encodeURIComponent(res.summary));
   const preview = await previewImport(c.env.DB, req);
   return renderImport(c, {
-    lootText: req.lootText, attendanceText: req.attendanceText, error: res.error, state, status: 400,
+    lootText: req.lootText, attendanceText: req.attendanceText, epgpText: req.epgpText, error: res.error, state, status: 400,
     preview: preview.ok ? preview : undefined,
   });
 });
