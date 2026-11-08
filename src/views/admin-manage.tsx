@@ -168,11 +168,11 @@ export const ItemsPage = ({ items, q }: { items: ItemRow[]; q: string }) => (
     <h1>Admin</h1>
     <AdminNav active="Items" />
     <div class="card">
-      <h3>Item points</h3>
+      <h3>Items</h3>
       <form method="get" action="/admin/items" class="row" style="margin-top:0">
         <input type="text" name="q" value={q} placeholder="Search item..." />
         <button class="btn ghost small" type="submit">Search</button>
-        <span class="alt">New items start at 1 point. Offspec is always 0. Change an item's instance to move it.</span>
+        <span class="alt">Change an item's instance to move it and its drops to another raid page.</span>
       </form>
       {items.length === 0 ? <p class="alt">No items found.</p> : null}
     </div>
@@ -188,12 +188,11 @@ export const ItemsPage = ({ items, q }: { items: ItemRow[]; q: string }) => (
 const ItemTable = ({ items, q }: { items: ItemRow[]; q: string }) => (
   <div class="scroll">
     <table>
-      <tr><th>Item</th><th>Instance</th><th class="c">Points</th><th class="c">Times dropped</th><th></th></tr>
+      <tr><th>Item</th><th>Instance</th><th class="c">Times dropped</th><th></th></tr>
       {items.map((i) => (
         <tr>
           <td>{i.name}</td>
           <td><input type="text" name="instance" form={`i${i.itemId}`} value={i.instance} /></td>
-          <td class="c"><input type="number" name="points" form={`i${i.itemId}`} value={String(i.points)} min="0" step="any" /></td>
           <td class="c">{i.drops}</td>
           <td>
             <form id={`i${i.itemId}`} class="inline" method="post" action={`/admin/items/${i.itemId}`}>

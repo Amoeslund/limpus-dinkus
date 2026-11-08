@@ -106,11 +106,11 @@ describe('importer', () => {
     expect((await env.DB.prepare('SELECT counts FROM raid_night').first<{ counts: number }>())!.counts).toBe(1);
   });
 
-  it('new items default to 1 point', async () => {
+  it('new items take the instance of their kill', async () => {
     await commitImport(env.DB, req, '111');
-    const items = await env.DB.prepare('SELECT points, instance FROM item').all<any>();
+    const items = await env.DB.prepare('SELECT instance FROM item').all<any>();
     expect(items.results).toHaveLength(3);
-    expect(items.results.every((i) => i.points === 1 && i.instance === 'Molten Core')).toBe(true);
+    expect(items.results.every((i) => i.instance === 'Molten Core')).toBe(true);
   });
 
   it('rejects empty input and prefixes parser errors', async () => {
@@ -139,10 +139,10 @@ describe('importer', () => {
   });
 
   it('existing item instance is not overwritten', async () => {
-    await env.DB.prepare("INSERT INTO item (item_id, name, instance, points) VALUES (100, 'Item 100', 'Naxxramas', 3)").run();
+    await env.DB.prepare("INSERT INTO item (item_id, name, instance) VALUES (100, 'Item 100', 'Naxxramas')").run();
     await commitImport(env.DB, req, '111');
-    const i = await env.DB.prepare('SELECT instance, points FROM item WHERE item_id=100').first<any>();
-    expect(i).toEqual({ instance: 'Naxxramas', points: 3 });
+    const i = await env.DB.prepare('SELECT instance FROM item WHERE item_id=100').first<any>();
+    expect(i).toEqual({ instance: 'Naxxramas' });
   });
 
   it('handles more than 80 characters and awards in one import', async () => {
@@ -172,7 +172,7 @@ describe('importer', () => {
   });
 
   it('remembered item instance beats the night pick', async () => {
-    await env.DB.prepare("INSERT INTO item (item_id, name, instance, points) VALUES (100, 'Item 100', 'Naxxramas', 1)").run();
+    await env.DB.prepare("INSERT INTO item (item_id, name, instance) VALUES (100, 'Item 100', 'Naxxramas')").run();
     const lootOnly: ImportRequest = { lootText, attendanceText: '', instancePicks: {}, countsOff: [] };
     const p = await previewImport(env.DB, lootOnly);
     const date = p.ok ? p.nights[0].nightDate : '';

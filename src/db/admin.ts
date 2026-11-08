@@ -159,31 +159,25 @@ export async function updateCharacter(db: D1Database, key: string, main: string 
 
 // ---------- items ----------
 
-export type ItemRow = { itemId: number; name: string; instance: string; points: number; drops: number };
+export type ItemRow = { itemId: number; name: string; instance: string; drops: number };
 
 export async function listItems(db: D1Database, q: string): Promise<ItemRow[]> {
   const rows = (await db.prepare(
-    `SELECT i.item_id, i.name, i.instance, i.points,
+    `SELECT i.item_id, i.name, i.instance,
             (SELECT count(*) FROM award a WHERE a.item_id = i.item_id AND a.deleted = 0) AS drops
      FROM item i WHERE (? = '' OR instr(lower(i.name), lower(?)) > 0) ORDER BY i.name COLLATE NOCASE, i.item_id`).bind(q, q).all<any>()).results;
-  return rows.map((r) => ({ itemId: r.item_id, name: r.name, instance: r.instance ?? '', points: r.points, drops: r.drops }));
+  return rows.map((r) => ({ itemId: r.item_id, name: r.name, instance: r.instance ?? '', drops: r.drops }));
 }
 
-export async function updateItem(db: D1Database, id: number, points: string, instance: string): Promise<Result> {
-  const pt = points.trim();
-  const p = /^\d+(\.\d+)?$/.test(pt) ? Number(pt) : NaN;
-  if (!Number.isFinite(p)) return fail('Points must be a plain number of 0 or more');
+export async function updateItem(db: D1Database, id: number, instance: string): Promise<Result> {
   const cur = await db.prepare('SELECT instance FROM item WHERE item_id = ?').bind(id).first<{ instance: string | null }>();
   if (!cur) return fail('Unknown item');
   const inst = instance.trim();
   // An empty instance leaves the stored instance alone (awards need a non-empty one).
   // Awards only move when the instance actually changed.
-  if (!inst || inst === (cur.instance ?? '')) {
-    await db.prepare('UPDATE item SET points = ? WHERE item_id = ?').bind(p, id).run();
-    return ok;
-  }
+  if (!inst || inst === (cur.instance ?? '')) return ok;
   await db.batch([
-    db.prepare('UPDATE item SET points = ?, instance = ? WHERE item_id = ?').bind(p, inst, id),
+    db.prepare('UPDATE item SET instance = ? WHERE item_id = ?').bind(inst, id),
     db.prepare('UPDATE award SET instance = ? WHERE item_id = ?').bind(inst, id),
   ]);
   return ok;

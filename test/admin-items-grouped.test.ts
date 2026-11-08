@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import type { ItemRow } from '../src/db/admin';
 import { ItemsPage } from '../src/views/admin-manage';
 
-const item = (itemId: number, name: string, instance: string): ItemRow => ({ itemId, name, instance, points: 1, drops: 1 });
+const item = (itemId: number, name: string, instance: string): ItemRow => ({ itemId, name, instance, drops: 1 });
 
 it('groups items under one heading per instance, alphabetical, with unassigned items last', () => {
   const html = ItemsPage({ q: '', items: [

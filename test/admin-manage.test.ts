@@ -173,11 +173,10 @@ describe('nights', () => {
 });
 
 describe('items', () => {
-  it('item points change updates score; instance change moves awards', async () => {
-    expect((await standing('Mankee'))!.score).toBe(1);
-    const r = await post('/admin/items/100', { points: '3', instance: 'Blackwing Lair' });
+  it('instance change moves awards', async () => {
+    const r = await post('/admin/items/100', { instance: 'Blackwing Lair' });
     expect(r.status).toBe(302);
-    expect((await standing('Mankee'))!.score).toBe(3);
+    expect((await env.DB.prepare('SELECT instance FROM item WHERE item_id = 100').first<any>()).instance).toBe('Blackwing Lair');
     const a = await env.DB.prepare("SELECT instance FROM award WHERE darklight_id = 'a1'").first<any>();
     expect(a.instance).toBe('Blackwing Lair');
     const other = await env.DB.prepare("SELECT instance FROM award WHERE darklight_id = 'a2'").first<any>();
@@ -185,23 +184,24 @@ describe('items', () => {
     expect(await (await SELF.fetch('https://x/raid/blackwing-lair')).text()).toContain('Item 100');
   });
 
-  it('points-only edit does not move awards that dropped elsewhere', async () => {
+  it('saving the unchanged instance does not move awards that dropped elsewhere', async () => {
     await env.DB.prepare("UPDATE award SET instance = 'Zul''Gurub' WHERE darklight_id = 'a1'").run();
-    expect((await post('/admin/items/100', { points: '2', instance: 'Molten Core' })).status).toBe(302);
+    expect((await post('/admin/items/100', { instance: 'Molten Core' })).status).toBe(302);
     const a = await env.DB.prepare("SELECT instance FROM award WHERE darklight_id = 'a1'").first<any>();
     expect(a.instance).toBe("Zul'Gurub");
-    expect((await standing('Mankee'))!.score).toBe(2);
   });
 
-  it('rejects bad points', async () => {
-    expect((await post('/admin/items/100', { points: '1e3', instance: 'X' })).status).toBe(400);
-    expect((await post('/admin/items/100', { points: '0x10', instance: 'X' })).status).toBe(400);
-    expect((await post('/admin/items/abc', { points: '1', instance: 'X' })).status).toBe(404);
-    expect((await post('/admin/items/100', { points: '-1', instance: 'X' })).status).toBe(400);
-    expect((await post('/admin/items/100', { points: 'abc', instance: 'X' })).status).toBe(400);
-    expect((await post('/admin/items/100', { points: '', instance: 'X' })).status).toBe(400);
-    expect((await post('/admin/items/555', { points: '1', instance: 'X' })).status).toBe(400);
-    expect((await post('/admin/items/100', { points: '0', instance: '' })).status).toBe(302);
+  it('rejects unknown items; an empty instance is a no-op', async () => {
+    expect((await post('/admin/items/abc', { instance: 'X' })).status).toBe(404);
+    expect((await post('/admin/items/555', { instance: 'X' })).status).toBe(400);
+    expect((await post('/admin/items/100', { instance: '' })).status).toBe(302);
+    expect((await env.DB.prepare('SELECT instance FROM item WHERE item_id = 100').first<any>()).instance).toBe('Molten Core');
+  });
+
+  it('has no points input any more', async () => {
+    const html = await (await get('/admin/items')).text();
+    expect(html).not.toContain('name="points"');
+    expect(html).toContain('name="instance"');
   });
 
   it('lists sorted by name with drop counts and filters by q', async () => {

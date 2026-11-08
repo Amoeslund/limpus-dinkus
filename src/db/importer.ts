@@ -1,4 +1,3 @@
-import { DEFAULT_POINTS } from '../config';
 import { parseDarklight, type AwardInput } from '../domain/darklight';
 import { parseEpgpCsv, type EpgpRow } from '../domain/epgp';
 import { assignInstance, groupIntoNights, type NightDraft } from '../domain/grouping';
@@ -162,8 +161,8 @@ export async function commitImport(db: D1Database, req: ImportRequest, byDiscord
       .bind(c.nameKey, c.displayName, now));
   }
   for (const [itemId, it] of p.newItems) {
-    st.push(db.prepare('INSERT OR IGNORE INTO item (item_id, name, instance, points) VALUES (?, ?, ?, ?)')
-      .bind(itemId, it.name, it.instance, DEFAULT_POINTS));
+    st.push(db.prepare('INSERT OR IGNORE INTO item (item_id, name, instance) VALUES (?, ?, ?)')
+      .bind(itemId, it.name, it.instance));
   }
   const nightId = '(SELECT id FROM raid_night WHERE night_date = ?)';
   for (const n of p.nights) {

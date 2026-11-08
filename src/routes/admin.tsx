@@ -174,7 +174,7 @@ adminRoutes.get('/admin/items', async (c) => {
 adminRoutes.post('/admin/items/:id', async (c) => {
   if (!validId(idParam(c))) return badId(c, 'Items', '/admin/items');
   const b = await body(c);
-  const res = await A.updateItem(c.env.DB, idParam(c), str(b.points), str(b.instance));
+  const res = await A.updateItem(c.env.DB, idParam(c), str(b.instance));
   if (!res.ok) return bad(c, res.error, 'Items', '/admin/items');
   const q = str(b.q).trim();
   return c.redirect('/admin/items' + (q ? '?q=' + encodeURIComponent(q) : ''));
