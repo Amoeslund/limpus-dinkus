@@ -5,7 +5,7 @@ import { AttendancePage, RECENT_LOOT_NIGHTS, RaidPage } from '../src/views/publi
 
 const nights = Array.from({ length: 6 }, (_, i) => ({ id: i + 1, nightDate: `2026-10-${String(1 + i * 7).padStart(2, '0')}` }));
 const standing: Standing = { mainKey: 'mankee', displayName: 'Mankee', alts: [], raids: 6, attendancePct: 100,
-  cells: Object.fromEntries(nights.map((n) => [n.id, 'main'])), ep: 1250, gp: 400.25, pr: 1250 / 400.25 };
+  cells: Object.fromEntries(nights.map((n) => [n.id, 'main'])), ep: 1250, gp: 400.25, pr: 1250 / 400.25, belowMinEp: false };
 
 it('attendance pins name and PR, then EP, GP, Raids, Attendance and the newest nights first', () => {
   const html = AttendancePage({ standings: [standing], nights, epgpImportedAt: null }).toString();
@@ -20,6 +20,17 @@ it('attendance pins name and PR, then EP, GP, Raids, Attendance and the newest n
 it('members without standings show dashes', () => {
   const html = AttendancePage({ standings: [{ ...standing, ep: null, gp: null, pr: null }], nights, epgpImportedAt: null }).toString();
   expect(html).toContain('<td class="c num pin pin-pr">—</td><td class="c num">—</td><td class="c num">—</td>');
+});
+
+it('below min EP shows PR 0.00 with a muted marker, never the raw value', () => {
+  const low: Standing = { ...standing, ep: 999, gp: 0, pr: 0, belowMinEp: true };
+  const html = AttendancePage({ standings: [low], nights, epgpImportedAt: null }).toString();
+  expect(html).toContain('<td class="c num pin pin-pr" title="Below 1000 min EP">0.00<span class="alt">*</span></td>');
+  expect(html).not.toContain('9.99');
+  expect(html).toContain('PR = EP ÷ (GP + 100 base GP). Below 1000 EP shows PR 0.');
+  const raid = RaidPage({ instance: 'Molten Core', rows: [], standings: [low], epgpImportedAt: null }).toString();
+  expect(raid).toContain('<td class="c num" title="Below 1000 min EP">0.00<span class="alt">*</span></td>');
+  expect(raid).toContain('PR = EP ÷ (GP + 100 base GP). Below 1000 EP shows PR 0.');
 });
 
 it('shows when the EPGP standings were imported', () => {

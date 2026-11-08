@@ -1,4 +1,4 @@
-import { ITEM_URL } from '../config';
+import { EPGP_BASE_GP, EPGP_MIN_EP, ITEM_URL } from '../config';
 import type { LogRow } from '../db/read';
 import type { Response } from '../domain/darklight';
 import { nightLabel } from '../domain/nights';
@@ -15,6 +15,14 @@ const sortRow = (s: Standing): SortRow =>
 const byDefault = (standings: Standing[]) =>
   [...standings].sort((a, b) => compareRows(sortRow(a), sortRow(b), DEFAULT_SORT.key, DEFAULT_SORT.dir));
 const dataNum = (n: number | null) => (n === null ? '' : String(n));
+
+const PR_NOTE = `PR = EP ÷ (GP + ${EPGP_BASE_GP} base GP). Below ${EPGP_MIN_EP} EP shows PR 0.`;
+const BELOW_MIN = `Below ${EPGP_MIN_EP} min EP`;
+
+/** PR cell; below min EP it shows 0.00 with a muted marker, never the raw value. */
+const PrCell = ({ s, cls }: { s: Standing; cls: string }) => s.belowMinEp
+  ? <td class={cls} title={BELOW_MIN}>{formatPr(s.pr)}<span class="alt">*</span></td>
+  : <td class={cls}>{formatPr(s.pr)}</td>;
 
 const EpgpAsOf = ({ importedAt }: { importedAt: number | null }) => (
   <p class="alt">
@@ -56,7 +64,7 @@ export const AttendancePage = ({ standings, nights, epgpImportedAt }:
               <tr data-name={s.displayName} data-pr={dataNum(s.pr)} data-ep={dataNum(s.ep)} data-gp={dataNum(s.gp)}
                 data-raids={String(s.raids)} data-pct={String(s.attendancePct)}>
                 <td class="pin pin-name">{s.displayName}{s.alts.length > 0 && <span class="alt"> + {s.alts.join(', ')}</span>}</td>
-                <td class="c num pin pin-pr">{formatPr(s.pr)}</td>
+                <PrCell s={s} cls="c num pin pin-pr" />
                 <td class="c num">{formatEpgp(s.ep)}</td>
                 <td class="c num">{formatEpgp(s.gp)}</td>
                 <td class="c num">{s.raids}</td>
@@ -69,7 +77,7 @@ export const AttendancePage = ({ standings, nights, epgpImportedAt }:
             ))}
           </table>
         )}
-        <p class="alt">● present &nbsp; ◐ present on alt &nbsp; ◇ benched &nbsp; ○ absent &nbsp;·&nbsp; Click a column title to sort. PR = EP ÷ GP, highest first.</p>
+        <p class="alt">● present &nbsp; ◐ present on alt &nbsp; ◇ benched &nbsp; ○ absent &nbsp;·&nbsp; Click a column title to sort. {PR_NOTE} * below min EP.</p>
         <EpgpAsOf importedAt={epgpImportedAt} />
       </div>
       <script dangerouslySetInnerHTML={{ __html: SORT_SCRIPT }} />
@@ -134,10 +142,10 @@ export const RaidPage = ({ instance, rows, standings, epgpImportedAt }:
           <table>
             <tr><th>Player</th><th class="c">EP</th><th class="c">GP</th><th class="c">PR</th></tr>
             {byDefault(standings).map((s) => (
-              <tr><td>{s.displayName}</td><td class="c num">{formatEpgp(s.ep)}</td><td class="c num">{formatEpgp(s.gp)}</td><td class="c num">{formatPr(s.pr)}</td></tr>
+              <tr><td>{s.displayName}</td><td class="c num">{formatEpgp(s.ep)}</td><td class="c num">{formatEpgp(s.gp)}</td><PrCell s={s} cls="c num" /></tr>
             ))}
           </table>
-          <p class="alt">Highest PR (EP ÷ GP) first.</p>
+          <p class="alt">Highest PR first. {PR_NOTE} * below min EP.</p>
           <EpgpAsOf importedAt={epgpImportedAt} />
         </div>
       </div>

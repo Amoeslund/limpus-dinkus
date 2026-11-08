@@ -65,7 +65,7 @@ it('sorts by attendance, then raids, then name', () => {
   }));
   expect(r.map(s => s.mainKey)).toEqual(['b', 'a']);
 });
-it('joins EPGP standings by the main name key; missing rows and GP 0 give null', () => {
+it('joins EPGP standings by the main name key; below min EP shows PR 0; missing rows give null', () => {
   const r = computeStandings(base({
     characters: [
       { nameKey: 'zefal', displayName: 'Zefal', mainKey: null, status: 'member' },
@@ -73,11 +73,11 @@ it('joins EPGP standings by the main name key; missing rows and GP 0 give null',
       { nameKey: 'hexa', displayName: 'Hexa', mainKey: null, status: 'member' },
       { nameKey: 'nobody', displayName: 'Nobody', mainKey: null, status: 'member' },
     ],
-  }), new Map([['zefal', { ep: 1000, gp: 400 }], ['zefalock', { ep: 1, gp: 1 }], ['hexa', { ep: 50, gp: 0 }]]));
+  }), new Map([['zefal', { ep: 1000, gp: 400 }], ['zefalock', { ep: 1, gp: 1 }], ['hexa', { ep: 999, gp: 0 }]]));
   const by = Object.fromEntries(r.map((s) => [s.mainKey, s]));
-  expect(by.zefal).toMatchObject({ ep: 1000, gp: 400, pr: 2.5 });
-  expect(by.hexa).toMatchObject({ ep: 50, gp: 0, pr: null });
-  expect(by.nobody).toMatchObject({ ep: null, gp: null, pr: null });
+  expect(by.zefal).toMatchObject({ ep: 1000, gp: 400, pr: 2, belowMinEp: false });
+  expect(by.hexa).toMatchObject({ ep: 999, gp: 0, pr: 0, belowMinEp: true });
+  expect(by.nobody).toMatchObject({ ep: null, gp: null, pr: null, belowMinEp: false });
   expect(r.map((s) => s.mainKey)).not.toContain('zefalock');
 });
 

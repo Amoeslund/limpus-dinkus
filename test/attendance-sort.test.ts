@@ -31,8 +31,16 @@ it('sorts by name, raids and attendance', () => {
   expect(names('pct', -1)[0]).toBe('Ildkule');
 });
 
-const st = (displayName: string, ep: number | null, gp: number | null, pr: number | null): Standing =>
-  ({ mainKey: displayName.toLowerCase(), displayName, alts: [], raids: 6, attendancePct: 40, cells: {}, ep, gp, pr });
+const st = (displayName: string, ep: number | null, gp: number | null, pr: number | null, belowMinEp = false): Standing =>
+  ({ mainKey: displayName.toLowerCase(), displayName, alts: [], raids: 6, attendancePct: 40, cells: {}, ep, gp, pr, belowMinEp });
+
+it('below min EP (PR 0) sorts after eligible players and before no standings', () => {
+  const html = AttendancePage({ nights: [], epgpImportedAt: null, standings: [
+    st('Aaron', 999, 0, 0, true), st('Kruse', null, null, null), st('Zed', 1000, 9900, 0.1)] }).toString();
+  expect(html.indexOf('data-name="Zed"')).toBeLessThan(html.indexOf('data-name="Aaron"'));
+  expect(html.indexOf('data-name="Aaron"')).toBeLessThan(html.indexOf('data-name="Kruse"'));
+  expect(html).toContain('data-name="Aaron" data-pr="0"');
+});
 
 it('attendance table exposes sort buttons and row data, PR highest first by default', () => {
   const html = AttendancePage({ nights: [], epgpImportedAt: null, standings: [

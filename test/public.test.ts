@@ -46,8 +46,9 @@ describe('public pages', () => {
       await commitImport(env.DB, { lootText: '', attendanceText: '', epgpText: 'Name,Class,EP,GP\nMankee,Warrior,1000,400\nHexa,Priest,300,100',
         instancePicks: {}, countsOff: [] }, '111');
       const { html } = await get('/');
-      expect(html).toContain('<td class="c num pin pin-pr">2.50</td><td class="c num">1000</td><td class="c num">400</td>');
-      expect(html.indexOf('data-name="Hexa"')).toBeLessThan(html.indexOf('data-name="Mankee"')); // PR 3.00 before 2.50
+      expect(html).toContain('<td class="c num pin pin-pr">2.00</td><td class="c num">1000</td><td class="c num">400</td>'); // 1000 / (400 + 100)
+      expect(html).toContain('<td class="c num pin pin-pr" title="Below 1000 min EP">0.00<span class="alt">*</span></td><td class="c num">300</td>');
+      expect(html.indexOf('data-name="Mankee"')).toBeLessThan(html.indexOf('data-name="Hexa"')); // eligible before below min EP
       expect(html).toContain('EPGP standings as of');
       expect(html).toContain('<html lang="en">');
       expect(html).toContain('Mankee'); expect(html).toContain('Wk 46');
@@ -56,7 +57,7 @@ describe('public pages', () => {
     });
 
     it('raid page shows loot log and EPGP standings, highest PR first', async () => {
-      await commitImport(env.DB, { lootText: '', attendanceText: '', epgpText: 'Mankee,100,100\nHexa,300,100',
+      await commitImport(env.DB, { lootText: '', attendanceText: '', epgpText: 'Mankee,1000,100\nHexa,3000,100',
         instancePicks: {}, countsOff: [] }, '111');
       const { status, html } = await get('/raid/molten-core');
       expect(status).toBe(200);
@@ -71,8 +72,8 @@ describe('public pages', () => {
       expect(log).not.toContain(' pt</td>');
       const epgp = html.slice(html.indexOf('<h3>EPGP standings</h3>'));
       expect(epgp).toContain('<tr><th>Player</th><th class="c">EP</th><th class="c">GP</th><th class="c">PR</th></tr>');
-      expect(epgp.indexOf('Hexa')).toBeLessThan(epgp.indexOf('Mankee')); // 3.00 before 1.00
-      expect(epgp).toContain('<td>Hexa</td><td class="c num">300</td><td class="c num">100</td><td class="c num">3.00</td>');
+      expect(epgp.indexOf('Hexa')).toBeLessThan(epgp.indexOf('Mankee')); // 15.00 before 5.00
+      expect(epgp).toContain('<td>Hexa</td><td class="c num">3000</td><td class="c num">100</td><td class="c num">15.00</td>');
     });
 
     it('EPGP table puts members without standings (—) last', async () => {

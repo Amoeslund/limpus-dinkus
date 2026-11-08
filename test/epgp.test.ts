@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { formatEpgp, formatPr, parseEpgpCsv, pr } from '../src/domain/epgp';
+import { EPGP_BASE_GP, EPGP_MIN_EP } from '../src/config';
+import { displayPr, formatEpgp, formatPr, parseEpgpCsv, pr } from '../src/domain/epgp';
 import fixture from './fixtures/epgp-standings.csv?raw';
 
 describe('parseEpgpCsv', () => {
@@ -63,10 +64,19 @@ describe('parseEpgpCsv', () => {
 });
 
 describe('pr and formatting', () => {
-  it('pr is EP / GP, null when GP <= 0', () => {
-    expect(pr(1000, 400)).toBe(2.5);
-    expect(pr(10, 0)).toBeNull();
-    expect(pr(10, -1)).toBeNull();
+  it('uses the guild settings: base GP 100, min EP 1000', () => {
+    expect(EPGP_BASE_GP).toBe(100);
+    expect(EPGP_MIN_EP).toBe(1000);
+  });
+  it('pr is EP / (GP + base GP), like EPGP Forever', () => {
+    expect(pr(1000, 400)).toBe(2);
+    expect(pr(500, 0)).toBe(5); // GP 0 -> EP / 100
+    expect(pr(10, -100)).toBeNull();
+  });
+  it('displayPr is 0 below min EP and flags it', () => {
+    expect(displayPr(999, 0)).toEqual({ pr: 0, belowMinEp: true });
+    expect(displayPr(1000, 0)).toEqual({ pr: 10, belowMinEp: false });
+    expect(displayPr(1500, 200)).toEqual({ pr: 5, belowMinEp: false });
   });
   it('formatEpgp shows whole numbers plain, else one decimal', () => {
     expect(formatEpgp(1250)).toBe('1250');

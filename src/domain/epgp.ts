@@ -1,3 +1,4 @@
+import { EPGP_BASE_GP, EPGP_MIN_EP } from '../config';
 import type { Parsed } from './darklight';
 import { displayName, nameKey } from './names';
 
@@ -76,9 +77,15 @@ export function parseEpgpCsv(text: string): Parsed<EpgpRow[]> {
   return { ok: true, value: [...rows.values()], warnings };
 }
 
-/** Priority = EP / GP; null when GP is 0 or less. */
+/** Priority as EPGP Forever computes it: EP / (GP + base GP). The CSV holds the raw officer-note GP. */
 export function pr(ep: number, gp: number): number | null {
-  return gp > 0 ? ep / gp : null;
+  const total = gp + EPGP_BASE_GP;
+  return total > 0 ? ep / total : null;
+}
+
+/** The PR to show: 0 below min EP (like EPGP Forever's displayed PR), otherwise pr(). */
+export function displayPr(ep: number, gp: number): { pr: number | null; belowMinEp: boolean } {
+  return ep < EPGP_MIN_EP ? { pr: 0, belowMinEp: true } : { pr: pr(ep, gp), belowMinEp: false };
 }
 
 /** EP or GP for display: whole numbers as is, otherwise one decimal. */

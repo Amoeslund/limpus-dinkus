@@ -1,4 +1,4 @@
-import { pr } from './epgp';
+import { displayPr } from './epgp';
 
 export type Status = 'member' | 'guest' | 'left';
 export type StandingsInput = {
@@ -26,8 +26,8 @@ export function resolveNight(killKeys: Iterable<string>, overrides: { nameKey: s
 }
 export type Standing = { mainKey: string; displayName: string; alts: string[];
   raids: number; attendancePct: number; cells: Record<number, Cell>;
-  /** From the EPGP Forever snapshot; null when the main has no standings row. PR is also null when GP <= 0. */
-  ep: number | null; gp: number | null; pr: number | null };
+  /** From the EPGP Forever snapshot; null when the main has no standings row. PR is 0 below min EP. */
+  ep: number | null; gp: number | null; pr: number | null; belowMinEp: boolean };
 
 export function computeStandings(input: StandingsInput, epgp: EpgpByName = new Map()): Standing[] {
   const mainOf = (key: string) => input.characters.find(c => c.nameKey === key)?.mainKey ?? key;
@@ -75,7 +75,7 @@ export function computeStandings(input: StandingsInput, epgp: EpgpByName = new M
       cells,
       ep: e ? e.ep : null,
       gp: e ? e.gp : null,
-      pr: e ? pr(e.ep, e.gp) : null,
+      ...(e ? displayPr(e.ep, e.gp) : { pr: null, belowMinEp: false }),
     });
   }
   return result.sort((a, b) =>
