@@ -77,7 +77,7 @@ describe('read queries', () => {
   it('loadStandingsInput reflects overrides', async () => {
     const night = (await env.DB.prepare('SELECT id FROM raid_night LIMIT 1').first<{ id: number }>())!.id;
     await env.DB.prepare('INSERT INTO night_override(night_id,name_key,present) VALUES (?,?,0)').bind(night, 'hexa').run();
-    expect((await loadStandingsInput(env.DB)).overrides).toEqual([{ nightId: night, nameKey: 'hexa', present: false }]);
+    expect((await loadStandingsInput(env.DB)).overrides).toEqual([{ nightId: night, nameKey: 'hexa', present: false, benched: false }]);
   });
 
   it('lastImportAt returns max import time or null', async () => {

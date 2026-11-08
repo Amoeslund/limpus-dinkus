@@ -121,7 +121,8 @@ adminRoutes.get('/admin/nights', async (c) => {
 
 adminRoutes.post('/admin/nights/new', async (c) => {
   const b = await body(c);
-  const res = await A.createManualNight(c.env.DB, str(b.date).trim(), str(b.instances), strs(b['present[]'] ?? b.present));
+  const res = await A.createManualNight(c.env.DB, str(b.date).trim(), str(b.instances), strs(b['present[]'] ?? b.present),
+    strs(b['bench[]'] ?? b.bench));
   return res.ok ? c.redirect('/admin/nights') : bad(c, res.error, 'Nights', '/admin/nights');
 });
 
@@ -143,6 +144,14 @@ adminRoutes.post('/admin/nights/:id/presence', async (c) => {
   if (!validId(id)) return badId(c, 'Nights', '/admin/nights');
   const b = await body(c);
   const res = await A.setPresence(c.env.DB, id, str(b.nameKey), str(b.present) === '1');
+  return res.ok ? c.redirect(`/admin/nights/${id}`) : bad(c, res.error, 'Nights', `/admin/nights/${id}`);
+});
+
+adminRoutes.post('/admin/nights/:id/bench', async (c) => {
+  const id = idParam(c);
+  if (!validId(id)) return badId(c, 'Nights', '/admin/nights');
+  const b = await body(c);
+  const res = await A.setBench(c.env.DB, id, str(b.nameKey), str(b.benched) === '1');
   return res.ok ? c.redirect(`/admin/nights/${id}`) : bad(c, res.error, 'Nights', `/admin/nights/${id}`);
 });
 

@@ -59,6 +59,10 @@ export const NightsPage = ({ nights, members }: { nights: NightRow[]; members: {
         <div class="checks">
           {members.map((m) => <label><input type="checkbox" name="present[]" value={m.nameKey} /> {m.display}</label>)}
         </div>
+        <b>Benched</b> <span class="alt">counts as attendance</span>
+        <div class="checks">
+          {members.map((m) => <label><input type="checkbox" name="bench[]" value={m.nameKey} /> {m.display}</label>)}
+        </div>
         <div class="row"><button class="btn" type="submit">Create night</button></div>
       </form>
     </div>
@@ -66,7 +70,7 @@ export const NightsPage = ({ nights, members }: { nights: NightRow[]; members: {
 );
 
 export const NightPage = ({ night }: { night: { id: number; label: string; nightDate: string; counts: boolean; manual: boolean; instances: string;
-  roster: { nameKey: string; display: string; isAlt: boolean }[] } }) => (
+  roster: { nameKey: string; display: string; isAlt: boolean; benched: boolean }[] } }) => (
   <>
     <h1>Admin</h1>
     <AdminNav active="Nights" />
@@ -81,8 +85,13 @@ export const NightPage = ({ night }: { night: { id: number; label: string; night
           <tr><th>Player</th><th></th></tr>
           {night.roster.map((p) => (
             <tr>
-              <td>{p.display}{p.isAlt ? <span class="alt"> (alt)</span> : null}</td>
+              <td>{p.display}{p.isAlt ? <span class="alt"> (alt)</span> : null}{p.benched ? <span class="alt"> (benched)</span> : null}</td>
               <td>
+                <form class="inline" method="post" action={`/admin/nights/${night.id}/bench`}>
+                  <input type="hidden" name="nameKey" value={p.nameKey} />
+                  <input type="hidden" name="benched" value={p.benched ? '0' : '1'} />
+                  <button class="btn ghost small" type="submit">{p.benched ? 'Unbench' : 'Bench'}</button>
+                </form>{' '}
                 <form class="inline" method="post" action={`/admin/nights/${night.id}/presence`}>
                   <input type="hidden" name="nameKey" value={p.nameKey} />
                   <input type="hidden" name="present" value="0" />
@@ -98,7 +107,12 @@ export const NightPage = ({ night }: { night: { id: number; label: string; night
         <input type="hidden" name="present" value="1" />
         <button class="btn" type="submit">Add</button>
       </form>
-      <p class="alt">An unknown name is created as a new member.</p>
+      <form method="post" action={`/admin/nights/${night.id}/bench`} class="row">
+        <input type="text" name="nameKey" placeholder="Bench player by name" required />
+        <input type="hidden" name="benched" value="1" />
+        <button class="btn ghost" type="submit">Bench</button>
+      </form>
+      <p class="alt">An unknown name is created as a new member. Benched players count as attending (they get EP as standby in EPGP Forever).</p>
     </div>
     <form method="post" action={`/admin/nights/${night.id}/delete`} class="card">
       <button class="btn ghost" type="submit">Delete this night</button>

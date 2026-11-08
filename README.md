@@ -54,7 +54,7 @@ Download `LimpusAttendance-vX.Y.Z.zip` from the [latest release](https://github.
 
 To publish a new addon version: push a tag, e.g. `git tag v1.0.1 && git push origin v1.0.1`. The release workflow zips `addon/LimpusAttendance` and attaches it to a GitHub release.
 
-Only one person should run LimpusAttendance per raid. Kills recorded by two people are counted twice. Players who are offline at a kill are not recorded; add them on the Nights page if needed.
+Only one person should run LimpusAttendance per raid. Kills recorded by two people are counted twice. Players who are offline at a kill are not recorded; add them on the Nights page if needed. Benched players can be marked there too (or ticked when adding a night by hand); a bench counts as attendance, shown as ◇.
 
 - `/limpus` shows the stored kill count and the date of the last kill.
 - `/limpus export` opens a window with the JSON to copy for `/admin`.

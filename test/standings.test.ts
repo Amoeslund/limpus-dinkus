@@ -31,7 +31,7 @@ it('non-counting nights add nothing', () => {
 it('overrides add and remove presence', () => {
   const [s] = computeStandings(base({
     killPresence: [{ nightId: 1, nameKey: 'zefal' }],
-    overrides: [{ nightId: 1, nameKey: 'zefal', present: false }, { nightId: 2, nameKey: 'zefal', present: true }],
+    overrides: [{ nightId: 1, nameKey: 'zefal', present: false, benched: false }, { nightId: 2, nameKey: 'zefal', present: true, benched: false }],
   }));
   expect(s.cells).toEqual({ 1: 'absent', 2: 'main' });
   expect(s.raids).toBe(1);
@@ -79,4 +79,28 @@ it('joins EPGP standings by the main name key; missing rows and GP 0 give null',
   expect(by.hexa).toMatchObject({ ep: 50, gp: 0, pr: null });
   expect(by.nobody).toMatchObject({ ep: null, gp: null, pr: null });
   expect(r.map((s) => s.mainKey)).not.toContain('zefalock');
+});
+
+const bench = (nightId: number, nameKey: string) => ({ nightId, nameKey, present: true, benched: true });
+it('a benched night counts as a raid and in attendance %, shown as bench', () => {
+  const [s] = computeStandings(base({
+    killPresence: [{ nightId: 1, nameKey: 'zefal' }],
+    overrides: [bench(2, 'zefal')],
+  }));
+  expect(s.cells).toEqual({ 1: 'main', 2: 'bench' });
+  expect(s.raids).toBe(2);
+  expect(s.attendancePct).toBe(100);
+});
+it('presence wins over bench, also on an alt', () => {
+  const [s] = computeStandings(base({
+    killPresence: [{ nightId: 1, nameKey: 'zefal' }, { nightId: 2, nameKey: 'zefalock' }],
+    overrides: [bench(1, 'zefal'), bench(2, 'zefal')],
+  }));
+  expect(s.cells).toEqual({ 1: 'main', 2: 'alt' });
+  expect(s.raids).toBe(2);
+});
+it('a benched alt counts for the main', () => {
+  const [s] = computeStandings(base({ overrides: [bench(2, 'zefalock')] }));
+  expect(s.cells).toEqual({ 1: 'absent', 2: 'bench' });
+  expect(s.raids).toBe(1);
 });

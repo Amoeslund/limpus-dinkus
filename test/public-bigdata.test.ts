@@ -49,3 +49,9 @@ it('loot log has no fold when there are few nights', () => {
     playerDisplay: 'Mankee', altName: null, response: 'BiS' }];
   expect(RaidPage({ instance: 'Molten Core', rows, standings: [standing], epgpImportedAt: null }).toString()).not.toContain('<details');
 });
+
+it('benched nights show a diamond with a tooltip and a legend entry', () => {
+  const html = AttendancePage({ standings: [{ ...standing, cells: { ...standing.cells, 2: 'bench' } }], nights, epgpImportedAt: null }).toString();
+  expect(html).toContain('<td class="c y" title="benched">◇</td>');
+  expect(html).toContain('◇ benched');
+});

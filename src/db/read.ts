@@ -6,14 +6,14 @@ export async function loadStandingsInput(db: D1Database): Promise<StandingsInput
     db.prepare('SELECT name_key, display_name, main_key, status FROM character'),
     db.prepare('SELECT id, night_date, counts FROM raid_night ORDER BY night_date'),
     db.prepare('SELECT DISTINCT k.night_id, km.name_key FROM kill_member km JOIN kill k ON k.id = km.kill_id'),
-    db.prepare('SELECT night_id, name_key, present FROM night_override'),
+    db.prepare('SELECT night_id, name_key, present, benched FROM night_override'),
   ]);
   return {
     characters: (chars.results as any[]).map((r) => ({ nameKey: r.name_key, displayName: r.display_name,
       mainKey: r.main_key ?? null, status: r.status as Status })),
     nights: (nights.results as any[]).map((r) => ({ id: r.id, nightDate: r.night_date, counts: !!r.counts })),
     killPresence: (kills.results as any[]).map((r) => ({ nightId: r.night_id, nameKey: r.name_key })),
-    overrides: (overrides.results as any[]).map((r) => ({ nightId: r.night_id, nameKey: r.name_key, present: !!r.present })),
+    overrides: (overrides.results as any[]).map((r) => ({ nightId: r.night_id, nameKey: r.name_key, present: !!r.present, benched: !!r.benched })),
   };
 }
 

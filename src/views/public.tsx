@@ -22,7 +22,8 @@ const EpgpAsOf = ({ importedAt }: { importedAt: number | null }) => (
   </p>
 );
 
-const SYMBOL = { main: '●', alt: '◐', absent: '○' } as const;
+const SYMBOL = { main: '●', alt: '◐', bench: '◇', absent: '○' } as const;
+const TITLE: Partial<Record<keyof typeof SYMBOL, string>> = { alt: 'on an alt', bench: 'benched' };
 
 const SortButton = ({ k, label, on }: { k: SortKey; label: string; on?: boolean }) => (
   <button type="button" class={on ? 'sort on' : 'sort'} data-key={k}>{label}<span class="arrow" aria-hidden="true">{on ? '▼' : ''}</span></button>
@@ -62,13 +63,13 @@ export const AttendancePage = ({ standings, nights, epgpImportedAt }:
                 <td>{s.attendancePct}% <span class="bar"><i style={`width:${s.attendancePct}%`}></i></span></td>
                 {newestFirst.map((n) => {
                   const cell = s.cells[n.id] ?? 'absent';
-                  return <td class={cell === 'absent' ? 'c n' : 'c y'} title={cell === 'alt' ? 'on an alt' : undefined}>{SYMBOL[cell]}</td>;
+                  return <td class={cell === 'absent' ? 'c n' : 'c y'} title={TITLE[cell]}>{SYMBOL[cell]}</td>;
                 })}
               </tr>
             ))}
           </table>
         )}
-        <p class="alt">● present &nbsp; ◐ present on alt &nbsp; ○ absent &nbsp;·&nbsp; Click a column title to sort. PR = EP ÷ GP, highest first.</p>
+        <p class="alt">● present &nbsp; ◐ present on alt &nbsp; ◇ benched &nbsp; ○ absent &nbsp;·&nbsp; Click a column title to sort. PR = EP ÷ GP, highest first.</p>
         <EpgpAsOf importedAt={epgpImportedAt} />
       </div>
       <script dangerouslySetInnerHTML={{ __html: SORT_SCRIPT }} />

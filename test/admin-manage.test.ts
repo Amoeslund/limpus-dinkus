@@ -172,6 +172,77 @@ describe('nights', () => {
   });
 });
 
+describe('bench', () => {
+  const cell = async (name: string, id: number) => (await standing(name))!.cells[id];
+
+  it('is admin only', async () => {
+    const id = await nightId();
+    const r = await SELF.fetch(`https://x/admin/nights/${id}/bench`, {
+      method: 'POST', redirect: 'manual',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ nameKey: 'mankee', benched: '1' }),
+    });
+    expect(r.status).toBe(302);
+    expect(r.headers.get('location')).not.toBe(`/admin/nights/${id}`);
+    expect(await count('night_override')).toBe(0);
+  });
+
+  it('benching counts as a raid, shows on the roster and can be undone', async () => {
+    const id = await nightId();
+    await env.DB.prepare("INSERT INTO character (name_key, display_name, created_at) VALUES ('idle', 'Idle', 1)").run();
+    expect((await standing('Idle'))!.raids).toBe(0);
+    const r = await post(`/admin/nights/${id}/bench`, { nameKey: 'idle', benched: '1' });
+    expect(r.status).toBe(302);
+    expect(r.headers.get('location')).toBe(`/admin/nights/${id}`);
+    expect((await standing('Idle'))!.raids).toBe(1);
+    expect((await standing('Idle'))!.attendancePct).toBe(100);
+    expect(await cell('Idle', id)).toBe('bench');
+    const html = await (await get(`/admin/nights/${id}`)).text();
+    expect(html).toMatch(/Idle<span class="alt"> \(benched\)<\/span>/);
+    expect(html).toContain('Unbench');
+    expect(await (await SELF.fetch('https://x/')).text()).toContain('title="benched"');
+    await post(`/admin/nights/${id}/bench`, { nameKey: 'idle', benched: '0' });
+    expect((await standing('Idle'))!.raids).toBe(0);
+    expect(await count('night_override')).toBe(0);
+  });
+
+  it('presence from kills wins over bench; unbench leaves them present', async () => {
+    const id = await nightId();
+    await post(`/admin/nights/${id}/bench`, { nameKey: 'mankee', benched: '1' });
+    expect(await cell('Mankee', id)).toBe('main');
+    await post(`/admin/nights/${id}/bench`, { nameKey: 'mankee', benched: '0' });
+    expect(await cell('Mankee', id)).toBe('main');
+  });
+
+  it('adding a benched player as present clears the bench', async () => {
+    const id = await nightId();
+    await post(`/admin/nights/${id}/bench`, { nameKey: 'Newbie', benched: '1' });
+    expect(await cell('Newbie', id)).toBe('bench');
+    await post(`/admin/nights/${id}/presence`, { nameKey: 'Newbie', present: '1' });
+    expect(await cell('Newbie', id)).toBe('main');
+  });
+
+  it('benching an unknown name creates a member; bad input is rejected', async () => {
+    const id = await nightId();
+    expect((await post(`/admin/nights/${id}/bench`, { nameKey: 'Benchy-Realm', benched: '1' })).status).toBe(302);
+    const c = await env.DB.prepare('SELECT display_name, status, main_key FROM character WHERE name_key = ?').bind('benchy').first<any>();
+    expect(c).toEqual({ display_name: 'Benchy', status: 'member', main_key: null });
+    expect((await post(`/admin/nights/${id}/bench`, { nameKey: ' ', benched: '1' })).status).toBe(400);
+    expect((await post('/admin/nights/9999/bench', { nameKey: 'x', benched: '1' })).status).toBe(400);
+    expect((await post('/admin/nights/abc/bench', { nameKey: 'x', benched: '1' })).status).toBe(404);
+  });
+
+  it('manual night can tick players as benched', async () => {
+    const r = await post('/admin/nights/new', { date: '2025-11-08', instances: 'ZG', 'present[]': ['mankee'], 'bench[]': ['hexa', 'mankee'] });
+    expect(r.status).toBe(302);
+    const id = await nightId('2025-11-08');
+    expect(await cell('Mankee', id)).toBe('main');
+    expect(await cell('Hexa', id)).toBe('bench');
+    expect((await get('/admin/nights')).status).toBe(200);
+    expect(await (await get('/admin/nights')).text()).toContain('name="bench[]"');
+    expect((await post('/admin/nights/new', { date: '2025-11-09', 'bench[]': 'ghost' })).status).toBe(400);
+  });
+});
+
 describe('items', () => {
   it('instance change moves awards', async () => {
     const r = await post('/admin/items/100', { instance: 'Blackwing Lair' });
