@@ -30,7 +30,6 @@ beforeEach(async () => {
     await env.DB.prepare(`DELETE FROM ${t}`).run();
   await commitImport(env.DB, req, '111');
   await env.DB.prepare("UPDATE character SET main_key='mankee' WHERE name_key='zefal'").run();
-  await env.DB.prepare('UPDATE item SET points=2 WHERE item_id=100').run();
 });
 
 describe('read queries', () => {
@@ -44,12 +43,12 @@ describe('read queries', () => {
     expect((await listInstances(env.DB)).map((i) => i.slug)).toEqual(['molten-core']);
   });
 
-  it('loadRaidLog shows main name, alt name and points', async () => {
+  it('loadRaidLog shows main name, alt name and response', async () => {
     const log = await loadRaidLog(env.DB, 'molten-core');
     expect(log?.instance).toBe('Molten Core');
-    expect(log!.rows.map((r) => [r.itemId, r.playerDisplay, r.altName, r.response, r.points, r.counts])).toEqual([
-      [100, 'Mankee', null, 'BiS', 2, true],
-      [101, 'Mankee', 'Zefal', 'Offspec', 0, true],
+    expect(log!.rows.map((r) => [r.itemId, r.playerDisplay, r.altName, r.response, r.counts])).toEqual([
+      [100, 'Mankee', null, 'BiS', true],
+      [101, 'Mankee', 'Zefal', 'Offspec', true],
     ]);
   });
 
@@ -73,8 +72,6 @@ describe('read queries', () => {
     expect(s.nights.every((n) => n.counts)).toBe(true);
     // distinct (night, name): Mankee+Zefal night 1, Mankee+Hexa night 2 (Mankee in two kills of night 1 counts once)
     expect(s.killPresence).toHaveLength(4);
-    expect(s.awards).toHaveLength(4);
-    expect(s.awards.find((a) => a.itemPoints === 2)).toMatchObject({ nameKey: 'mankee', response: 'BiS', deleted: false });
   });
 
   it('loadStandingsInput reflects overrides', async () => {

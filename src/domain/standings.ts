@@ -1,4 +1,4 @@
-import type { Response } from './darklight';
+import { pr } from './epgp';
 
 export type Status = 'member' | 'guest' | 'left';
 export type StandingsInput = {
@@ -6,22 +6,16 @@ export type StandingsInput = {
   nights: { id: number; nightDate: string; counts: boolean }[];
   killPresence: { nightId: number; nameKey: string }[];
   overrides: { nightId: number; nameKey: string; present: boolean }[];
-  awards: { nightId: number; nameKey: string; response: Response; itemPoints: number; deleted: boolean }[];
 };
+/** EPGP Forever standings by character name key. */
+export type EpgpByName = ReadonlyMap<string, { ep: number; gp: number }>;
 export type Cell = 'main' | 'alt' | 'absent';
 export type Standing = { mainKey: string; displayName: string; alts: string[];
-  raids: number; points: number; score: number | null; attendancePct: number;
-  cells: Record<number, Cell> };
+  raids: number; attendancePct: number; cells: Record<number, Cell>;
+  /** From the EPGP Forever snapshot; null when the main has no standings row. PR is also null when GP <= 0. */
+  ep: number | null; gp: number | null; pr: number | null };
 
-export function pointsFor(response: Response, itemPoints: number): number {
-  return response === 'Offspec' ? 0 : itemPoints;
-}
-
-export function formatScore(score: number | null): string {
-  return score === null ? '—' : score.toFixed(2);
-}
-
-export function computeStandings(input: StandingsInput): Standing[] {
+export function computeStandings(input: StandingsInput, epgp: EpgpByName = new Map()): Standing[] {
   const mainOf = (key: string) => input.characters.find(c => c.nameKey === key)?.mainKey ?? key;
   const nights = input.nights.filter(n => n.counts).sort((a, b) => a.nightDate.localeCompare(b.nightDate));
 
@@ -42,14 +36,6 @@ export function computeStandings(input: StandingsInput): Standing[] {
     presence.set(n.id, byMain);
   }
 
-  const countingIds = new Set(nights.map(n => n.id));
-  const pointsByMain = new Map<string, number>();
-  for (const a of input.awards) {
-    if (a.deleted || !countingIds.has(a.nightId)) continue;
-    const m = mainOf(a.nameKey);
-    pointsByMain.set(m, (pointsByMain.get(m) ?? 0) + pointsFor(a.response, a.itemPoints));
-  }
-
   const result: Standing[] = [];
   for (const main of input.characters) {
     if (main.mainKey !== null || main.status !== 'member') continue;
@@ -63,16 +49,17 @@ export function computeStandings(input: StandingsInput): Standing[] {
       if (p) raids++;
       if (raids > 0) sinceFirst++;
     }
-    const points = pointsByMain.get(main.nameKey) ?? 0;
+    const e = epgp.get(main.nameKey);
     result.push({
       mainKey: main.nameKey,
       displayName: main.displayName,
       alts,
       raids,
-      points,
-      score: raids === 0 ? null : points / raids,
       attendancePct: raids === 0 ? 0 : Math.round((100 * raids) / sinceFirst),
       cells,
+      ep: e ? e.ep : null,
+      gp: e ? e.gp : null,
+      pr: e ? pr(e.ep, e.gp) : null,
     });
   }
   return result.sort((a, b) =>

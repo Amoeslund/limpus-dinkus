@@ -218,18 +218,18 @@ describe('items', () => {
 });
 
 describe('loot', () => {
-  it('deleted award no longer counts', async () => {
-    expect((await standing('Mankee'))!.points).toBe(1);
+  it('deleting an award hides it and can be undone', async () => {
+    const deleted = async () => (await env.DB.prepare("SELECT deleted FROM award WHERE darklight_id = 'a1'").first<any>()).deleted;
     const r = await post('/admin/loot/a1', { nameKey: 'mankee', deleted: 'on' });
     expect(r.status).toBe(302);
-    expect((await standing('Mankee'))!.points).toBe(0);
+    expect(await deleted()).toBe(1);
     await post('/admin/loot/a1', { nameKey: 'mankee' });
-    expect((await standing('Mankee'))!.points).toBe(1);
+    expect(await deleted()).toBe(0);
   });
 
   it('reassigns an award and rejects unknown characters', async () => {
     await post('/admin/loot/a1', { nameKey: 'Zefal' });
-    expect((await standing('Zefal'))!.points).toBe(2);
+    expect((await env.DB.prepare("SELECT name_key FROM award WHERE darklight_id = 'a1'").first<any>()).name_key).toBe('zefal');
     const bad = await post('/admin/loot/a1', { nameKey: 'nobody' });
     expect(bad.status).toBe(400);
     expect(await bad.text()).toContain('Unknown character');

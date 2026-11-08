@@ -2,22 +2,35 @@ import { ITEM_URL } from '../config';
 import type { LogRow } from '../db/read';
 import type { Response } from '../domain/darklight';
 import { nightLabel } from '../domain/nights';
-import { formatScore, type Standing } from '../domain/standings';
-import { SORT_SCRIPT, type SortKey } from './attendance-sort';
+import { formatEpgp, formatPr } from '../domain/epgp';
+import type { Standing } from '../domain/standings';
+import { formatDateTime } from './admin';
+import { compareRows, DEFAULT_SORT, SORT_SCRIPT, type SortKey, type SortRow } from './attendance-sort';
 
 type Night = { id: number; nightDate: string };
 
-/** At most two decimals, no float noise (0.1 + 0.2 shows as 0.3). */
-const fmtPoints = (n: number) => String(Math.round(n * 100) / 100);
+const sortRow = (s: Standing): SortRow =>
+  ({ name: s.displayName, pr: s.pr, ep: s.ep, gp: s.gp, raids: s.raids, pct: s.attendancePct });
+/** Standings in the default order: highest PR first, no PR last, then by name. */
+const byDefault = (standings: Standing[]) =>
+  [...standings].sort((a, b) => compareRows(sortRow(a), sortRow(b), DEFAULT_SORT.key, DEFAULT_SORT.dir));
+const dataNum = (n: number | null) => (n === null ? '' : String(n));
+
+const EpgpAsOf = ({ importedAt }: { importedAt: number | null }) => (
+  <p class="alt">
+    {importedAt === null ? 'No EPGP standings imported yet.' : `EPGP standings as of ${formatDateTime(importedAt)} (from EPGP Forever)`}
+  </p>
+);
 
 const SYMBOL = { main: '●', alt: '◐', absent: '○' } as const;
 
-const SortButton = ({ k, label }: { k: SortKey; label: string }) => (
-  <button type="button" class="sort" data-key={k}>{label}<span class="arrow" aria-hidden="true"></span></button>
+const SortButton = ({ k, label, on }: { k: SortKey; label: string; on?: boolean }) => (
+  <button type="button" class={on ? 'sort on' : 'sort'} data-key={k}>{label}<span class="arrow" aria-hidden="true">{on ? '▼' : ''}</span></button>
 );
 
-/** Name and score stay pinned on the left; nights scroll beside them, newest first. */
-export const AttendancePage = ({ standings, nights }: { standings: Standing[]; nights: Night[] }) => {
+/** Name and PR stay pinned on the left; nights scroll beside them, newest first. */
+export const AttendancePage = ({ standings, nights, epgpImportedAt }:
+  { standings: Standing[]; nights: Night[]; epgpImportedAt: number | null }) => {
   const newestFirst = [...nights].sort((a, b) => b.nightDate.localeCompare(a.nightDate));
   return (
     <section>
@@ -28,7 +41,9 @@ export const AttendancePage = ({ standings, nights }: { standings: Standing[]; n
           <table data-sortable>
             <tr>
               <th class="pin pin-name"><SortButton k="name" label="Player" /></th>
-              <th class="c pin pin-score"><SortButton k="score" label="Score" /></th>
+              <th class="c pin pin-pr" aria-sort="descending"><SortButton k="pr" label="PR" on /></th>
+              <th class="c"><SortButton k="ep" label="EP" /></th>
+              <th class="c"><SortButton k="gp" label="GP" /></th>
               <th class="c"><SortButton k="raids" label="Raids" /></th>
               <th><SortButton k="pct" label="Attendance" /></th>
               {newestFirst.map((n) => {
@@ -36,10 +51,13 @@ export const AttendancePage = ({ standings, nights }: { standings: Standing[]; n
                 return <th class="c">{wk}<br /><span class="alt">{day}</span></th>;
               })}
             </tr>
-            {standings.map((s) => (
-              <tr data-name={s.displayName} data-score={s.score === null ? '' : String(s.score)} data-raids={String(s.raids)} data-pct={String(s.attendancePct)}>
+            {byDefault(standings).map((s) => (
+              <tr data-name={s.displayName} data-pr={dataNum(s.pr)} data-ep={dataNum(s.ep)} data-gp={dataNum(s.gp)}
+                data-raids={String(s.raids)} data-pct={String(s.attendancePct)}>
                 <td class="pin pin-name">{s.displayName}{s.alts.length > 0 && <span class="alt"> + {s.alts.join(', ')}</span>}</td>
-                <td class="c num pin pin-score">{formatScore(s.score)}</td>
+                <td class="c num pin pin-pr">{formatPr(s.pr)}</td>
+                <td class="c num">{formatEpgp(s.ep)}</td>
+                <td class="c num">{formatEpgp(s.gp)}</td>
                 <td class="c num">{s.raids}</td>
                 <td>{s.attendancePct}% <span class="bar"><i style={`width:${s.attendancePct}%`}></i></span></td>
                 {newestFirst.map((n) => {
@@ -50,7 +68,8 @@ export const AttendancePage = ({ standings, nights }: { standings: Standing[]; n
             ))}
           </table>
         )}
-        <p class="alt">● present &nbsp; ◐ present on alt &nbsp; ○ absent &nbsp;·&nbsp; Click a column title to sort. Score sorts lowest first.</p>
+        <p class="alt">● present &nbsp; ◐ present on alt &nbsp; ○ absent &nbsp;·&nbsp; Click a column title to sort. PR = EP ÷ GP, highest first.</p>
+        <EpgpAsOf importedAt={epgpImportedAt} />
       </div>
       <script dangerouslySetInnerHTML={{ __html: SORT_SCRIPT }} />
     </section>
@@ -66,7 +85,7 @@ const LootTable = ({ groups }: { groups: LootGroup[] }) => (
   <table class="loot">
     {groups.map((g) => (
       <>
-        <tr class="wk"><td colspan={4} class="week">{nightLabel(g.date)}{!g.counts && <span class="pill pug">pug</span>}</td></tr>
+        <tr class="wk"><td colspan={3} class="week">{nightLabel(g.date)}{!g.counts && <span class="pill pug">pug</span>}</td></tr>
         {g.rows.map((r) => {
           const [cls, label] = PILL[r.response];
           return (
@@ -74,7 +93,6 @@ const LootTable = ({ groups }: { groups: LootGroup[] }) => (
               <td class="it"><a class="item" href={ITEM_URL(r.itemId)}>[{r.itemName}]</a></td>
               <td class="pl">{r.playerDisplay}{r.altName && <span class="alt"> {r.altName}</span>}</td>
               <td><span class={`pill ${cls}`}>{label}</span></td>
-              <td class="num">{g.counts ? fmtPoints(r.points) : '0'} pt</td>
             </tr>
           );
         })}
@@ -87,20 +105,18 @@ const PILL: Record<Response, [string, string]> = {
   BiS: ['p-bis', 'BiS'], Upgrade: ['p-upgrade', 'Upgrade'], Offspec: ['p-os', 'Offspec'],
 };
 
-export const RaidPage = ({ instance, rows, standings }: { instance: string; rows: LogRow[]; standings: Standing[] }) => {
+export const RaidPage = ({ instance, rows, standings, epgpImportedAt }:
+  { instance: string; rows: LogRow[]; standings: Standing[]; epgpImportedAt: number | null }) => {
   const groups: LootGroup[] = [];
   for (const r of rows) {
     const last = groups[groups.length - 1];
     if (last && last.nightId === r.nightId) last.rows.push(r);
     else groups.push({ nightId: r.nightId, date: r.nightDate, counts: r.counts, rows: [r] });
   }
-  const score = [...standings].sort((a, b) =>
-    (a.score === null ? 1 : 0) - (b.score === null ? 1 : 0) ||
-    (a.score ?? 0) - (b.score ?? 0) || a.displayName.localeCompare(b.displayName));
   return (
     <section>
       <h1>{instance}</h1>
-      <p class="sub">All drops, newest first. The score is the same on every raid page: item points ÷ raids attended.</p>
+      <p class="sub">All drops, newest first. EPGP standings come from EPGP Forever and are the same on every raid page.</p>
       <div class="grid2">
         <div class="card scroll">
           <h3>Loot log</h3>
@@ -113,14 +129,15 @@ export const RaidPage = ({ instance, rows, standings }: { instance: string; rows
           )}
         </div>
         <div class="card scroll">
-          <h3>Score (all raids)</h3>
+          <h3>EPGP standings</h3>
           <table>
-            <tr><th>Player</th><th class="c">Raids</th><th class="c">Points</th><th class="c">Score</th></tr>
-            {score.map((s) => (
-              <tr><td>{s.displayName}</td><td class="c num">{s.raids}</td><td class="c num">{fmtPoints(s.points)}</td><td class="c num">{formatScore(s.score)}</td></tr>
+            <tr><th>Player</th><th class="c">EP</th><th class="c">GP</th><th class="c">PR</th></tr>
+            {byDefault(standings).map((s) => (
+              <tr><td>{s.displayName}</td><td class="c num">{formatEpgp(s.ep)}</td><td class="c num">{formatEpgp(s.gp)}</td><td class="c num">{formatPr(s.pr)}</td></tr>
             ))}
           </table>
-          <p class="alt">Lowest score first, so the people who are "owed" loot are at the top.</p>
+          <p class="alt">Highest PR (EP ÷ GP) first.</p>
+          <EpgpAsOf importedAt={epgpImportedAt} />
         </div>
       </div>
     </section>
