@@ -205,27 +205,34 @@ describe('bench', () => {
     expect(await count('night_override')).toBe(0);
   });
 
-  it('presence from kills wins over bench; unbench leaves them present', async () => {
+  it('refuses to bench a player who is on the night\'s boss kills, and offers no Bench button for them', async () => {
     const id = await nightId();
-    await post(`/admin/nights/${id}/bench`, { nameKey: 'mankee', benched: '1' });
-    expect(await cell('Mankee', id)).toBe('main');
-    await post(`/admin/nights/${id}/bench`, { nameKey: 'mankee', benched: '0' });
-    expect(await cell('Mankee', id)).toBe('main');
+    const r = await post(`/admin/nights/${id}/bench`, { nameKey: 'mankee', benched: '1' });
+    expect(r.status).toBe(400);
+    expect(await r.text()).toContain('Already present from boss kills');
+    expect(await count('night_override')).toBe(0);
+    await env.DB.prepare("INSERT INTO character (name_key, display_name, created_at) VALUES ('idle', 'Idle', 1)").run();
+    await post(`/admin/nights/${id}/presence`, { nameKey: 'idle', present: '1' });
+    const html = await (await get(`/admin/nights/${id}`)).text();
+    // Mankee, Zefal and Hexa come from kills; only Idle (added by hand) gets a Bench button.
+    expect(html.match(/>Bench<\/button>/g)!.length).toBe(2); // Idle's row + the bench-by-name form
   });
 
   it('adding a benched player as present clears the bench', async () => {
     const id = await nightId();
-    await post(`/admin/nights/${id}/bench`, { nameKey: 'Newbie', benched: '1' });
-    expect(await cell('Newbie', id)).toBe('bench');
-    await post(`/admin/nights/${id}/presence`, { nameKey: 'Newbie', present: '1' });
-    expect(await cell('Newbie', id)).toBe('main');
+    await env.DB.prepare("INSERT INTO character (name_key, display_name, created_at) VALUES ('idle', 'Idle', 1)").run();
+    await post(`/admin/nights/${id}/bench`, { nameKey: 'Idle', benched: '1' });
+    expect(await cell('Idle', id)).toBe('bench');
+    await post(`/admin/nights/${id}/presence`, { nameKey: 'Idle', present: '1' });
+    expect(await cell('Idle', id)).toBe('main');
   });
 
-  it('benching an unknown name creates a member; bad input is rejected', async () => {
+  it('benching needs an existing character; bad input is rejected', async () => {
     const id = await nightId();
-    expect((await post(`/admin/nights/${id}/bench`, { nameKey: 'Benchy-Realm', benched: '1' })).status).toBe(302);
-    const c = await env.DB.prepare('SELECT display_name, status, main_key FROM character WHERE name_key = ?').bind('benchy').first<any>();
-    expect(c).toEqual({ display_name: 'Benchy', status: 'member', main_key: null });
+    const r = await post(`/admin/nights/${id}/bench`, { nameKey: 'Benchy-Realm', benched: '1' });
+    expect(r.status).toBe(400);
+    expect(await r.text()).toContain('Unknown character');
+    expect(await env.DB.prepare("SELECT 1 AS x FROM character WHERE name_key = 'benchy'").first()).toBeNull();
     expect((await post(`/admin/nights/${id}/bench`, { nameKey: ' ', benched: '1' })).status).toBe(400);
     expect((await post('/admin/nights/9999/bench', { nameKey: 'x', benched: '1' })).status).toBe(400);
     expect((await post('/admin/nights/abc/bench', { nameKey: 'x', benched: '1' })).status).toBe(404);

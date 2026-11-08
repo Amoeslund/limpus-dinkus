@@ -114,7 +114,7 @@ describe('admin import', () => {
     const pv = await post('/admin/import/preview', { lootText: '', attendanceText: '', epgpText });
     expect(pv.status).toBe(200);
     const html = await pv.text();
-    expect(html).toContain('EPGP standings: 2 standings rows, 0 match known characters.');
+    expect(html).toContain('EPGP standings: 2 standings rows, 0 match members on the site.');
     expect(html).toMatch(/<textarea name="epgpText" hidden[^>]*>Name,Class,EP,GP/);
     expect(await count('epgp_standing')).toBe(0);
     const r = await post('/admin/import/commit', { lootText: '', attendanceText: '', epgpText });

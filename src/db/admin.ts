@@ -16,12 +16,13 @@ export type NightRow = { id: number; nightDate: string; label: string; counts: b
 type OverrideRow = { night_id: number; name_key: string; present: number; benched: number };
 const toOverride = (r: OverrideRow) => ({ nameKey: r.name_key, present: !!r.present, benched: !!r.benched });
 
-async function effectiveRoster(db: D1Database, nightId: number): Promise<{ present: Set<string>; benched: Set<string> }> {
+async function effectiveRoster(db: D1Database, nightId: number): Promise<{ present: Set<string>; benched: Set<string>; fromKills: Set<string> }> {
   const [kills, ov] = await db.batch([
     db.prepare('SELECT DISTINCT km.name_key FROM kill_member km JOIN kill k ON k.id = km.kill_id WHERE k.night_id = ?').bind(nightId),
     db.prepare('SELECT night_id, name_key, present, benched FROM night_override WHERE night_id = ?').bind(nightId),
   ]);
-  return resolveNight((kills.results as any[]).map((r) => r.name_key as string), (ov.results as OverrideRow[]).map(toOverride));
+  const killKeys = (kills.results as any[]).map((r) => r.name_key as string);
+  return { ...resolveNight(killKeys, (ov.results as OverrideRow[]).map(toOverride)), fromKills: new Set(killKeys) };
 }
 
 export async function listNights(db: D1Database): Promise<NightRow[]> {
@@ -77,11 +78,11 @@ export async function createManualNight(db: D1Database, date: string, instances:
 export async function getNight(db: D1Database, id: number) {
   const n = await db.prepare('SELECT id, night_date, counts, manual, instances FROM raid_night WHERE id = ?').bind(id).first<any>();
   if (!n) return null;
-  const { present, benched } = await effectiveRoster(db, id);
+  const { present, benched, fromKills } = await effectiveRoster(db, id);
   const chars = (await db.prepare('SELECT name_key, display_name, main_key FROM character').all<any>()).results;
   const byKey = new Map(chars.map((c) => [c.name_key as string, c]));
   const roster = [...present, ...benched].map((k) => ({ nameKey: k, display: (byKey.get(k)?.display_name ?? k) as string,
-    isAlt: !!byKey.get(k)?.main_key, benched: benched.has(k) }))
+    isAlt: !!byKey.get(k)?.main_key, benched: benched.has(k), fromKills: fromKills.has(k) }))
     .sort((a, b) => a.display.localeCompare(b.display));
   return { id: n.id as number, nightDate: n.night_date as string, label: nightLabel(n.night_date), counts: !!n.counts,
     manual: !!n.manual, instances: (n.instances ?? '') as string, roster };
@@ -107,17 +108,17 @@ export async function setBench(db: D1Database, nightId: number, rawName: string,
   const key = nameKey(rawName);
   if (!key) return fail('Enter a character name');
   if (!(await db.prepare('SELECT 1 AS x FROM raid_night WHERE id = ?').bind(nightId).first())) return fail('Unknown raid night');
+  if (!(await db.prepare('SELECT 1 AS x FROM character WHERE name_key = ?').bind(key).first())) return fail('Unknown character');
   if (!benched) {
     // Only the bench goes; presence from kills (or a present override) is left alone.
     await db.prepare('DELETE FROM night_override WHERE night_id = ? AND name_key = ? AND benched = 1').bind(nightId, key).run();
     return ok;
   }
-  await db.batch([
-    db.prepare("INSERT OR IGNORE INTO character (name_key, display_name, status, created_at) VALUES (?, ?, 'member', ?)")
-      .bind(key, displayName(rawName), Math.floor(Date.now() / 1000)),
-    db.prepare('INSERT INTO night_override (night_id, name_key, present, benched) VALUES (?, ?, 1, 1) ON CONFLICT(night_id, name_key) DO UPDATE SET present = 1, benched = 1')
-      .bind(nightId, key),
-  ]);
+  const onKills = await db.prepare('SELECT 1 AS x FROM kill_member km JOIN kill k ON k.id = km.kill_id WHERE k.night_id = ? AND km.name_key = ? LIMIT 1')
+    .bind(nightId, key).first();
+  if (onKills) return fail('Already present from boss kills');
+  await db.prepare('INSERT INTO night_override (night_id, name_key, present, benched) VALUES (?, ?, 1, 1) ON CONFLICT(night_id, name_key) DO UPDATE SET present = 1, benched = 1')
+    .bind(nightId, key).run();
   return ok;
 }
 

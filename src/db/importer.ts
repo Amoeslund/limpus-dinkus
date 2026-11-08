@@ -9,8 +9,8 @@ export type ImportRequest = { lootText: string; attendanceText: string; epgpText
   instancePicks: Record<string /*nightDate*/, string>; countsOff: string[] /*nightDates*/ };
 export type NightPreview = { nightDate: string; label: string; instances: { zone: string; bosses: number }[];
   players: number; newAwards: number; duplicateAwards: number; needsInstance: boolean; existing: boolean };
-/** EPGP standings in this import: rows to store, and how many match a character the site knows (or this import creates). */
-export type EpgpPreview = { rows: number; known: number };
+/** EPGP standings in this import: rows to store, and how many match a member main on the site (or one this import creates). */
+export type EpgpPreview = { rows: number; members: number };
 export type ImportPreview = { ok: true; nights: NightPreview[]; newCharacters: string[]; epgp: EpgpPreview | null; warnings: string[] }
   | { ok: false; error: string };
 
@@ -82,12 +82,13 @@ async function plan(db: D1Database, req: ImportRequest): Promise<Plan | { error:
   const knownChars = new Set(
     (await selectIn<{ name_key: string }>(db, (ph) => `SELECT name_key FROM character WHERE name_key IN (${ph})`,
       [...seenChars.keys()])).map((r) => r.name_key));
-  // The EPGP CSV lists the whole guild roster, so it never creates characters; it only matches known ones.
-  const epgpKnown = new Set(
-    (await selectIn<{ name_key: string }>(db, (ph) => `SELECT name_key FROM character WHERE name_key IN (${ph})`,
+  // The EPGP CSV lists the whole guild roster, so it never creates characters; it only matches member mains.
+  const epgpMembers = new Set(
+    (await selectIn<{ name_key: string }>(db,
+      (ph) => `SELECT name_key FROM character WHERE status = 'member' AND main_key IS NULL AND name_key IN (${ph})`,
       epgp.value.map((r) => r.nameKey))).map((r) => r.name_key));
-  for (const k of seenChars.keys()) epgpKnown.add(k);
   const newCharacters = [...seenChars].filter(([k]) => !knownChars.has(k)).map(([nameKey, displayName]) => ({ nameKey, displayName }));
+  for (const c of newCharacters) epgpMembers.add(c.nameKey); // created as member mains by this import
 
   const newItems = new Map<number, { name: string; instance: string | null }>();
   const nights = drafts.map((d) => {
@@ -128,7 +129,7 @@ async function plan(db: D1Database, req: ImportRequest): Promise<Plan | { error:
     .map((n) => `No attendance for ${n.preview.label}: untick Counts, or add players on the Nights page after saving.`);
   const epgpPlan = epgpText.trim() === '' ? null : {
     rows: epgp.value,
-    preview: { rows: epgp.value.length, known: epgp.value.filter((r) => epgpKnown.has(r.nameKey)).length },
+    preview: { rows: epgp.value.length, members: epgp.value.filter((r) => epgpMembers.has(r.nameKey)).length },
   };
   return { nights, newCharacters, newItems, epgp: epgpPlan,
     warnings: [...loot.warnings, ...att.warnings, ...epgp.warnings, ...noAttendance] };

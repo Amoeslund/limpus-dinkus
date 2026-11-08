@@ -219,13 +219,13 @@ describe('importer', () => {
     const standings = async () =>
       (await env.DB.prepare('SELECT name_key, class, ep, gp FROM epgp_standing ORDER BY name_key').all<any>()).results;
 
-    it('preview counts rows and known characters without writing or proposing new characters', async () => {
+    it('preview counts rows and member mains without writing or proposing new characters', async () => {
       await env.DB.prepare("INSERT INTO character (name_key, display_name, created_at) VALUES ('mankee', 'Mankee', 1)").run();
       await env.DB.prepare("INSERT INTO character (name_key, display_name, main_key, created_at) VALUES ('mankeealt', 'Mankeealt', 'mankee', 1)").run();
       const p = await previewImport(env.DB, epgpOnly('Name,Class,EP,GP\nMankee,Warrior,100,50\nMankeealt,Mage,100,50\nNewbie-Forever,Rogue,10,5'));
       expect(p.ok).toBe(true);
       if (!p.ok) return;
-      expect(p.epgp).toEqual({ rows: 3, known: 2 });
+      expect(p.epgp).toEqual({ rows: 3, members: 1 }); // Mankee; the alt and the unknown name don't count
       expect(p.newCharacters).toEqual([]);
       expect(p.nights).toEqual([]);
       expect(await count('epgp_standing')).toBe(0);
@@ -264,7 +264,7 @@ describe('importer', () => {
 
     it('commit together with loot and attendance in one go; characters from this import count as known', async () => {
       const p = await previewImport(env.DB, { ...req, epgpText: 'Mankee,100,50\nZefal,80,40\nRosterOnly,1,1' });
-      expect(p.ok && p.epgp).toEqual({ rows: 3, known: 2 });
+      expect(p.ok && p.epgp).toEqual({ rows: 3, members: 2 });
       const r = await commitImport(env.DB, { ...req, epgpText: 'Mankee,100,50\nZefal,80,40\nRosterOnly,1,1' }, '111');
       expect(r.ok).toBe(true);
       expect(await count('award')).toBe(3);
