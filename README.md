@@ -1,6 +1,6 @@
 # Limpus Dinkus
 
-Guild site for the Limpus Dinkus raid group, served at <https://loremforever.com>. It shows raid attendance, loot awards and a loot score per player. Officers feed it by pasting two exports after each raid: loot history from the Darklight addon and attendance from the LimpusAttendance addon. It is a Cloudflare Worker (Hono, server-side JSX) with a D1 database.
+Guild site for the Limpus Dinkus raid group, served at <https://loremforever.com>. It shows raid attendance, loot awards and each player's EPGP standing (EP, GP and PR = EP ÷ GP). Officers feed it by pasting exports after each raid: loot history from the Darklight addon, attendance from the LimpusAttendance addon, and the standings CSV from EPGP Forever. The site does not calculate EPGP; EPGP Forever (decay, base GP, min EP) is the source of truth. It is a Cloudflare Worker (Hono, server-side JSX) with a D1 database.
 
 ## Local development
 
@@ -40,8 +40,11 @@ After each raid:
 
 1. In game run `/dlc export` and choose "Darklight Web (JSON)". Copy the text with Ctrl+C.
 2. Run `/limpus export` and copy that text too.
-3. Log in on `/admin` with Discord and paste both exports.
-4. Check the preview, pick the instances, untick pug nights (they then count for nothing), and save.
+3. Export the standings from EPGP Forever's CSV tools (standings export, `Name,Class,EP,GP`) and copy the CSV.
+4. Log in on `/admin` with Discord and paste the exports into their boxes. Any box can be left empty.
+5. Check the preview, pick the instances, untick pug nights (they then count for nothing), and save.
+
+The EPGP standings are a snapshot: each upload replaces the previous standings completely, and the public pages show when they were imported. Rows for characters linked as alts on the Characters page are skipped, because EPGP Forever shares the main's balance. Export the standings at least once a week (after decay) so PR on the site matches the game.
 
 Import at least once a week. Darklight keeps only its latest 100 items, so older awards are lost if you wait. The admin page warns when the last import is more than 7 days old.
 
