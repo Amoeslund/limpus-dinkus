@@ -9,8 +9,8 @@ export type ImportRequest = { lootText: string; attendanceText: string; epgpText
   instancePicks: Record<string /*nightDate*/, string>; countsOff: string[] /*nightDates*/ };
 export type NightPreview = { nightDate: string; label: string; instances: { zone: string; bosses: number }[];
   players: number; newAwards: number; duplicateAwards: number; needsInstance: boolean; existing: boolean };
-/** EPGP standings in this import: rows to store, rows for characters not seen before, alt rows skipped. */
-export type EpgpPreview = { rows: number; newCharacters: number; altsSkipped: number };
+/** EPGP standings in this import: rows to store, and how many match a character the site knows (or this import creates). */
+export type EpgpPreview = { rows: number; known: number };
 export type ImportPreview = { ok: true; nights: NightPreview[]; newCharacters: string[]; epgp: EpgpPreview | null; warnings: string[] }
   | { ok: false; error: string };
 
@@ -79,13 +79,14 @@ async function plan(db: D1Database, req: ImportRequest): Promise<Plan | { error:
   const seenChars = new Map<string, string>();
   for (const d of drafts) for (const a of d.awards) if (!seenChars.has(a.nameKey)) seenChars.set(a.nameKey, a.displayName);
   for (const d of drafts) for (const k of d.kills) for (const m of k.members) if (!seenChars.has(m.nameKey)) seenChars.set(m.nameKey, m.displayName);
-  for (const r of epgp.value) if (!seenChars.has(r.nameKey)) seenChars.set(r.nameKey, r.displayName);
-  const knownRows = await selectIn<{ name_key: string; main_key: string | null }>(db,
-    (ph) => `SELECT name_key, main_key FROM character WHERE name_key IN (${ph})`, [...seenChars.keys()]);
-  const knownChars = new Set(knownRows.map((r) => r.name_key));
-  // EPGP Forever shares a main's balance with its alts, so alt rows would duplicate it.
-  const alts = new Set(knownRows.filter((r) => r.main_key !== null).map((r) => r.name_key));
-  const epgpRows = epgp.value.filter((r) => !alts.has(r.nameKey));
+  const knownChars = new Set(
+    (await selectIn<{ name_key: string }>(db, (ph) => `SELECT name_key FROM character WHERE name_key IN (${ph})`,
+      [...seenChars.keys()])).map((r) => r.name_key));
+  // The EPGP CSV lists the whole guild roster, so it never creates characters; it only matches known ones.
+  const epgpKnown = new Set(
+    (await selectIn<{ name_key: string }>(db, (ph) => `SELECT name_key FROM character WHERE name_key IN (${ph})`,
+      epgp.value.map((r) => r.nameKey))).map((r) => r.name_key));
+  for (const k of seenChars.keys()) epgpKnown.add(k);
   const newCharacters = [...seenChars].filter(([k]) => !knownChars.has(k)).map(([nameKey, displayName]) => ({ nameKey, displayName }));
 
   const newItems = new Map<number, { name: string; instance: string | null }>();
@@ -126,9 +127,8 @@ async function plan(db: D1Database, req: ImportRequest): Promise<Plan | { error:
   const noAttendance = nights.filter((n) => !n.preview.existing && n.preview.players === 0)
     .map((n) => `No attendance for ${n.preview.label}: untick Counts, or add players on the Nights page after saving.`);
   const epgpPlan = epgpText.trim() === '' ? null : {
-    rows: epgpRows,
-    preview: { rows: epgpRows.length, newCharacters: epgpRows.filter((r) => !knownChars.has(r.nameKey)).length,
-      altsSkipped: epgp.value.length - epgpRows.length },
+    rows: epgp.value,
+    preview: { rows: epgp.value.length, known: epgp.value.filter((r) => epgpKnown.has(r.nameKey)).length },
   };
   return { nights, newCharacters, newItems, epgp: epgpPlan,
     warnings: [...loot.warnings, ...att.warnings, ...epgp.warnings, ...noAttendance] };
@@ -191,9 +191,9 @@ export async function commitImport(db: D1Database, req: ImportRequest, byDiscord
   const newAwards = p.nights.reduce((s, n) => s + n.preview.newAwards, 0);
   const parts: string[] = [];
   if (req.lootText.trim() !== '' || req.attendanceText.trim() !== '') {
-    parts.push(plural(p.nights.length, 'night', 'nights'), plural(newAwards, 'new item', 'new items'));
+    parts.push(plural(p.nights.length, 'night', 'nights'), plural(newAwards, 'new item', 'new items'),
+      plural(p.newCharacters.length, 'new character', 'new characters'));
   }
-  parts.push(plural(p.newCharacters.length, 'new character', 'new characters'));
   if (p.epgp) parts.push(plural(p.epgp.rows.length, 'EPGP standing', 'EPGP standings'));
   const summary = parts.join(', ');
   st.push(db.prepare('INSERT INTO import_log (at, by_discord_id, summary) VALUES (?, ?, ?)').bind(now, byDiscordId, summary));

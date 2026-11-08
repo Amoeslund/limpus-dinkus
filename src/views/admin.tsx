@@ -105,8 +105,8 @@ export const ImportPage = (p: {
           {p.preview.nights.map((n) => <NightRow n={n} instances={p.instances} st={p.state} />)}
           {p.preview.epgp ? (
             <p>
-              EPGP standings: {p.preview.epgp.rows} rows, {p.preview.epgp.newCharacters} new characters, {p.preview.epgp.altsSkipped} alt rows skipped.
-              <span class="alt"> Saving replaces all current standings.</span>
+              EPGP standings: {p.preview.epgp.rows} standings rows, {p.preview.epgp.known} match known characters.
+              <span class="alt"> Saving replaces all current standings. Unknown names are stored but not shown until they raid or get loot.</span>
             </p>
           ) : null}
           {p.preview.newCharacters.length > 0 ? (

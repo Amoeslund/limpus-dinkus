@@ -219,14 +219,14 @@ describe('importer', () => {
     const standings = async () =>
       (await env.DB.prepare('SELECT name_key, class, ep, gp FROM epgp_standing ORDER BY name_key').all<any>()).results;
 
-    it('preview counts rows, new characters and skipped alts without writing', async () => {
+    it('preview counts rows and known characters without writing or proposing new characters', async () => {
       await env.DB.prepare("INSERT INTO character (name_key, display_name, created_at) VALUES ('mankee', 'Mankee', 1)").run();
       await env.DB.prepare("INSERT INTO character (name_key, display_name, main_key, created_at) VALUES ('mankeealt', 'Mankeealt', 'mankee', 1)").run();
       const p = await previewImport(env.DB, epgpOnly('Name,Class,EP,GP\nMankee,Warrior,100,50\nMankeealt,Mage,100,50\nNewbie-Forever,Rogue,10,5'));
       expect(p.ok).toBe(true);
       if (!p.ok) return;
-      expect(p.epgp).toEqual({ rows: 2, newCharacters: 1, altsSkipped: 1 });
-      expect(p.newCharacters).toEqual(['Newbie']);
+      expect(p.epgp).toEqual({ rows: 3, known: 2 });
+      expect(p.newCharacters).toEqual([]);
       expect(p.nights).toEqual([]);
       expect(await count('epgp_standing')).toBe(0);
       expect(await count('character')).toBe(2);
@@ -237,7 +237,7 @@ describe('importer', () => {
       expect(p.ok && p.epgp).toBeNull();
     });
 
-    it('commit replaces the previous snapshot, skips alts, creates mains and stores the time', async () => {
+    it('commit replaces the previous snapshot, stores every row, creates no characters and stores the time', async () => {
       await env.DB.prepare("INSERT INTO character (name_key, display_name, created_at) VALUES ('mankee', 'Mankee', 1)").run();
       await env.DB.prepare("INSERT INTO character (name_key, display_name, main_key, created_at) VALUES ('mankeealt', 'Mankeealt', 'mankee', 1)").run();
       expect((await commitImport(env.DB, epgpOnly('Mankee,100,50\nOld,1,1'), '111')).ok).toBe(true);
@@ -246,14 +246,14 @@ describe('importer', () => {
       expect(r.ok).toBe(true);
       expect(await standings()).toEqual([
         { name_key: 'mankee', class: 'Warrior', ep: 120.5, gp: 60 },
+        { name_key: 'mankeealt', class: 'Mage', ep: 1, gp: 1 },
         { name_key: 'newbie', class: 'Rogue', ep: 10, gp: 0 },
       ]);
       const meta = await env.DB.prepare('SELECT id, imported_at FROM epgp_meta').all<any>();
       expect(meta.results).toHaveLength(1);
       expect(meta.results[0].imported_at).toBeGreaterThanOrEqual(before);
-      const newbie = await env.DB.prepare("SELECT display_name, main_key, status FROM character WHERE name_key='newbie'").first<any>();
-      expect(newbie).toEqual({ display_name: 'Newbie', main_key: null, status: 'member' });
-      expect(r.ok && r.summary).toBe('1 new character, 2 EPGP standings');
+      expect(await count('character')).toBe(2);
+      expect(r.ok && r.summary).toBe('3 EPGP standings');
     });
 
     it('an import without EPGP leaves the standings alone', async () => {
@@ -262,11 +262,13 @@ describe('importer', () => {
       expect(await count('epgp_standing')).toBe(1);
     });
 
-    it('commit together with loot and attendance in one go', async () => {
-      const r = await commitImport(env.DB, { ...req, epgpText: 'Mankee,100,50\nZefal,80,40' }, '111');
+    it('commit together with loot and attendance in one go; characters from this import count as known', async () => {
+      const p = await previewImport(env.DB, { ...req, epgpText: 'Mankee,100,50\nZefal,80,40\nRosterOnly,1,1' });
+      expect(p.ok && p.epgp).toEqual({ rows: 3, known: 2 });
+      const r = await commitImport(env.DB, { ...req, epgpText: 'Mankee,100,50\nZefal,80,40\nRosterOnly,1,1' }, '111');
       expect(r.ok).toBe(true);
       expect(await count('award')).toBe(3);
-      expect(await count('epgp_standing')).toBe(2);
+      expect(await count('epgp_standing')).toBe(3);
       expect(await count('character')).toBe(3);
     });
 

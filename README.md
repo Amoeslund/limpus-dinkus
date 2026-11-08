@@ -44,7 +44,7 @@ After each raid:
 4. Log in on `/admin` with Discord and paste the exports into their boxes. Any box can be left empty.
 5. Check the preview, pick the instances, untick pug nights (they then count for nothing), and save.
 
-The EPGP standings are a snapshot: each upload replaces the previous standings completely, and the public pages show when they were imported. Rows for characters linked as alts on the Characters page are skipped, because EPGP Forever shares the main's balance. Export the standings at least once a week (after decay) so PR on the site matches the game.
+The EPGP standings are a snapshot: each upload replaces the previous standings completely, and the public pages show when they were imported. The CSV lists the whole guild roster, so it never creates characters: standings only show for characters the site already knows from raids or loot. Export the standings at least once a week (after decay) so PR on the site matches the game.
 
 Import at least once a week. Darklight keeps only its latest 100 items, so older awards are lost if you wait. The admin page warns when the last import is more than 7 days old.
 
