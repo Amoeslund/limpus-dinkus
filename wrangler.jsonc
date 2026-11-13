@@ -6,8 +6,8 @@
   "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": ["/officer/*"] },
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
-  // Armory roster poll (see src/db/roster.ts).
-  "triggers": { "crons": ["17 */3 * * *"] },
+  // Armory roster poll every 3 hours (src/db/roster.ts, ARMORY_CRON) and gear poll every hour (src/db/gear.ts).
+  "triggers": { "crons": ["17 */3 * * *", "47 * * * *"] },
   "routes": [
     { "pattern": "loremforever.com", "custom_domain": true },
     { "pattern": "www.loremforever.com", "custom_domain": true }

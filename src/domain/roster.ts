@@ -1,7 +1,7 @@
 import { ARMORY } from '../config';
 import { displayName, nameKey } from './names';
 
-export type ArmoryMember = { nameKey: string; display: string; cls: string | null; level: number; rankId: number | null };
+export type ArmoryMember = { nameKey: string; display: string; cls: string | null; level: number; rankId: number | null; slug: string };
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
 /** Forever characters have a first name and a surname; the game shows both ("Prim Ordial"). */
@@ -15,9 +15,12 @@ export function parseArmoryRoster(json: unknown): ParseResult<ArmoryMember[]> {
     const c = e?.character;
     if (!c || typeof c.name !== 'string' || !c.name) continue;
     const full = c.surname ? `${c.name} ${c.surname}` : c.name;
+    // _id is "eu-<name>-<surname>", the armory character page slug with the region in front.
+    const slug = typeof c._id === 'string' && c._id.startsWith(ARMORY.region + '-')
+      ? c._id.slice(ARMORY.region.length + 1) : full.toLowerCase().replace(/\s+/g, '-');
     out.push({
       nameKey: nameKey(full), display: displayName(full), cls: c.class?.name ?? null,
-      level: Number.isFinite(c.level) ? c.level : 0, rankId: Number.isInteger(e.rank?.rankId) ? e.rank.rankId : null,
+      level: Number.isFinite(c.level) ? c.level : 0, rankId: Number.isInteger(e.rank?.rankId) ? e.rank.rankId : null, slug,
     });
   }
   if (out.length === 0) return { ok: false, error: 'Armory roster was empty' };
@@ -50,7 +53,7 @@ export async function fetchArmoryRoster(fetchFn: typeof fetch = fetch): Promise<
 }
 
 export type PulseMember = { nameKey: string; display: string; level: number; rankIndex: number | null; rank: string | null;
-  lastOnline: number | null; seen7d: number; avgDay: number; share: number };
+  lastOnline: number | null; seen7d: number; avgDay: number; share: number; dungeon7d: number | null; raid7d: number | null };
 export type PulseReport = { at: number; members: PulseMember[]; ranks: { id: number; name: string }[] };
 
 const num = (v: unknown, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -70,6 +73,9 @@ export function parseGuildPulse(text: string, now: number): ParseResult<PulseRep
       rankIndex: Number.isInteger(m.rankIndex) ? m.rankIndex : null, rank: typeof m.rank === 'string' ? m.rank : null,
       lastOnline: typeof m.lastOnline === 'number' ? Math.min(m.lastOnline, at) : null,
       seen7d: Math.max(0, num(m.seen7d)), avgDay: Math.max(0, num(m.avgDay)), share: Math.min(1, Math.max(0, num(m.share))),
+      // Guild Pulse 1.3+; older versions leave these out (null = unknown, not zero).
+      dungeon7d: typeof m.dungeon7d === 'number' ? Math.max(0, m.dungeon7d) : null,
+      raid7d: typeof m.raid7d === 'number' ? Math.max(0, m.raid7d) : null,
     });
   }
   const ranks = new Map<number, string>();

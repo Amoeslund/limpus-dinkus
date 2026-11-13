@@ -23,7 +23,7 @@ beforeEach(async () => {
 describe('roster parsing', () => {
   it('joins first name and surname like the game does', () => {
     const r = parseArmoryRoster(armory([member('Prim', 'Ordial', 36, 3)]));
-    expect(r).toEqual({ ok: true, value: [{ nameKey: 'prim ordial', display: 'Prim Ordial', cls: 'Warlock', level: 36, rankId: 3 }] });
+    expect(r).toEqual({ ok: true, value: [{ nameKey: 'prim ordial', display: 'Prim Ordial', cls: 'Warlock', level: 36, rankId: 3, slug: 'prim-ordial' }] });
   });
 
   it('reports armory errors', () => {

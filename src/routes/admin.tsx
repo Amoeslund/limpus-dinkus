@@ -10,9 +10,10 @@ import { AdminsPage, CharactersPage, ErrorPage, ItemsPage, LootPage, MANAGE_CSS,
 import { ADMIN_CSS, formatDateTime, ImportPage, type PickState } from '../views/admin';
 import { MAX_LEVEL } from '../config';
 import { loadRoster, pollArmory, saveGuildPulse } from '../db/roster';
+import { loadGear, pollGear } from '../db/gear';
 import { parseGuildPulse } from '../domain/roster';
 import { AddonsPage } from '../views/addons';
-import { ROSTER_CSS, RosterPage, SORTS, type RosterSort } from '../views/roster';
+import { MemberPage, ROSTER_CSS, RosterPage, SORTS, type RosterSort } from '../views/roster';
 
 type AdminEnv = { Bindings: Env; Variables: { admin: { id: string; name: string } } };
 export const adminRoutes = new Hono<AdminEnv>();
@@ -261,4 +262,28 @@ adminRoutes.get('/officer/*', async (c) => {
   const out = new Response(res.body, res);
   out.headers.set('Cache-Control', 'private, no-store');
   return out;
+});
+
+adminRoutes.post('/admin/roster/poll-gear', async (c) => {
+  const res = await pollGear(c.env.DB);
+  return c.redirect('/admin/roster?imported=' + encodeURIComponent(`gear for ${res.fetched} members${res.errors ? `, ${res.errors} failed` : ''}`));
+});
+
+adminRoutes.get('/admin/roster/member/:key', async (c) => {
+  const key = c.req.param('key');
+  const now = Math.floor(Date.now() / 1000);
+  const data = await loadRoster(c.env.DB, now);
+  const row = data.rows.find((r) => r.nameKey === key);
+  if (!row) return c.notFound();
+  const [g, slug] = await Promise.all([
+    loadGear(c.env.DB, key),
+    c.env.DB.prepare('SELECT slug FROM roster_member WHERE name_key = ?').bind(key).first<string>('slug'),
+  ]);
+  const instances = await listInstances(c.env.DB);
+  return c.html(
+    <Layout title={`Admin: ${row.display}`} nav={{ instances }} admin>
+      <style dangerouslySetInnerHTML={{ __html: ADMIN_CSS + ROSTER_CSS }} />
+      <MemberPage row={row} slug={slug} now={now} gear={g.gear} history={g.history} profile={g.profile} />
+    </Layout>,
+  );
 });

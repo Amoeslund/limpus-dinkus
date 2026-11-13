@@ -23,6 +23,35 @@ local function offlineHours(i)
     return ((y * 12 + m) * 30 + d) * 24 + h
 end
 
+-- Instance zones as the guild roster shows them: d = dungeon, r = raid. Instances missing here (Forever's new
+-- ones) are learned when a Guild Pulse user is inside one, and shared with the other Guild Pulse users.
+local KNOWN_ZONES = {
+    ["Ragefire Chasm"] = "d", ["Wailing Caverns"] = "d", ["The Deadmines"] = "d", ["Deadmines"] = "d",
+    ["Shadowfang Keep"] = "d", ["The Stockade"] = "d", ["Stormwind Stockade"] = "d", ["Blackfathom Deeps"] = "d",
+    ["Gnomeregan"] = "d", ["Razorfen Kraul"] = "d", ["Scarlet Monastery"] = "d", ["Razorfen Downs"] = "d",
+    ["Uldaman"] = "d", ["Zul'Farrak"] = "d", ["Maraudon"] = "d", ["Sunken Temple"] = "d",
+    ["The Temple of Atal'Hakkar"] = "d", ["Blackrock Depths"] = "d", ["Blackrock Spire"] = "d",
+    ["Lower Blackrock Spire"] = "d", ["Upper Blackrock Spire"] = "d", ["Dire Maul"] = "d", ["Scholomance"] = "d",
+    ["Stratholme"] = "d", ["Hall of Thanes"] = "d", ["Ruins of Lordaeron"] = "d",
+    ["Molten Core"] = "r", ["Onyxia's Lair"] = "r", ["Blackwing Lair"] = "r", ["Zul'Gurub"] = "r",
+    ["Ruins of Ahn'Qiraj"] = "r", ["Ahn'Qiraj"] = "r", ["Temple of Ahn'Qiraj"] = "r", ["Naxxramas"] = "r",
+}
+local newZones = {}           -- learned since the last sync broadcast
+
+local function zoneKind(zone)
+    if not zone or zone == "" then return nil end
+    return (db and db.zones and db.zones[zone]) or KNOWN_ZONES[zone]
+end
+
+local function learnZone(zone, kind)
+    if not db or not zone or zone == "" or (kind ~= "d" and kind ~= "r") then return end
+    db.zones = db.zones or {}
+    if db.zones[zone] ~= kind and KNOWN_ZONES[zone] ~= kind then
+        db.zones[zone] = kind
+        newZones[zone] = kind
+    end
+end
+
 local MAXGAP = 180            -- seconds; longer gaps between scans (we were offline/loading) are not counted
 local KEEP_MIN = 8 * 24 * 60  -- minutes of online ranges kept
 
@@ -97,7 +126,8 @@ end
 local function stats(m, now)
     local play = seenSecs(m.sess, now)
     local watched, wdays = seenSecs(db and db.watched, now), watchedDays(now)
-    return play, wdays > 0 and play / wdays or 0, watched > 0 and math.min(1, play / watched) or 0, watched
+    return play, wdays > 0 and play / wdays or 0, watched > 0 and math.min(1, play / watched) or 0, watched,
+        seenSecs(m.dung, now), seenSecs(m.raid, now)
 end
 
 local function scan()
@@ -119,6 +149,10 @@ local function scan()
             if m.online and not m.gone then
                 m.sess = m.sess or {}
                 addRange(m.sess, s, e)
+                -- m.zone is still the previous scan's zone, i.e. where they spent these minutes.
+                local k = zoneKind(m.zone)
+                if k == "d" then m.dung = m.dung or {}; addRange(m.dung, s, e)
+                elseif k == "r" then m.raid = m.raid or {}; addRange(m.raid, s, e) end
             end
         end
     end
@@ -126,15 +160,22 @@ local function scan()
     if not db.pruned or now - db.pruned > DAY then
         local oldest = math.floor(now / 60) - KEEP_MIN
         pruneRanges(db.watched, oldest)
-        for _, m in pairs(db.members) do m.played = nil; pruneRanges(m.sess, oldest) end
+        for _, m in pairs(db.members) do
+            m.played = nil; pruneRanges(m.sess, oldest); pruneRanges(m.dung, oldest); pruneRanges(m.raid, oldest)
+        end
         db.pruned = now
     end
     local n = GetNumGuildMembers()
+    local me = UnitName and UnitName("player")
+    local inInst, instType = false, nil
+    if IsInInstance then inInst, instType = IsInInstance() end
     for i = 1, n do
         local name, rankName, rankIndex, level, classDisplay, zone, note, offNote, online, _, class = GetGuildRosterInfo(i)
         if name then
             name = Ambiguate(name, "guild")
             seen[name] = true
+            -- Our own roster zone while inside an instance teaches us how the roster names that instance.
+            if name == me and inInst then learnZone(zone, instType == "raid" and "r" or (instType == "party" and "d" or nil)) end
             local m = db.members[name]
             if not m then
                 m = { firstSeen = now, levels = {} }
@@ -191,8 +232,9 @@ local function list()
     for name, m in pairs(db.members) do
         if not m.gone and (not view.rank or m.rankIndex == view.rank) and not (view.hideMax and m.level == MAXLVL) then
             local g, partial = gain(m, now)
-            local play, avg, share = stats(m, now)
-            out[#out + 1] = { name = name, m = m, gain = g, partial = partial, play = play, avg = avg, share = share }
+            local play, avg, share, _, dung, raid = stats(m, now)
+            out[#out + 1] = { name = name, m = m, gain = g, partial = partial, play = play, avg = avg, share = share,
+                dung = dung, raid = raid }
         end
     end
     local key = view.sort
@@ -203,6 +245,7 @@ local function list()
         elseif key == "gain" then x, y = a.gain, b.gain
         elseif key == "play" then x, y = a.play, b.play
         elseif key == "avg" then x, y = a.avg, b.avg
+        elseif key == "dung" then x, y = a.dung, b.dung
         elseif key == "rank" then x, y = a.m.rankIndex or 99, b.m.rankIndex or 99
         else x, y = -(a.m.lastOnline or 0), -(b.m.lastOnline or 0) end
         if x == y then return a.name < b.name end
@@ -233,12 +276,12 @@ local function siteJSON()
     if db then
         for name, m in pairs(db.members) do
             if not m.gone then
-                local play, avg, share = stats(m, now)
+                local play, avg, share, _, dung, raid = stats(m, now)
                 parts[#parts + 1] = string.format(
-                    '{"name":%s,"level":%d,"rank":%s,"rankIndex":%d,"lastOnline":%s,"seen7d":%d,"avgDay":%d,"share":%.3f}',
+                    '{"name":%s,"level":%d,"rank":%s,"rankIndex":%d,"lastOnline":%s,"seen7d":%d,"avgDay":%d,"share":%.3f,"dungeon7d":%d,"raid7d":%d}',
                     jsonStr(name), m.level or 0, jsonStr(m.rank), m.rankIndex or -1,
                     m.online and tostring(now) or (m.lastOnline and tostring(m.lastOnline) or "null"),
-                    play, math.floor(avg), share)
+                    play, math.floor(avg), share, dung, raid)
             end
         end
     end
@@ -246,10 +289,10 @@ local function siteJSON()
 end
 
 local function exportText()
-    local now, lines = time(), { "Name;Level;+7d;Rank;LastOnline;Seen7d;AvgPerDay;SharePct;Note" }
+    local now, lines = time(), { "Name;Level;+7d;Rank;LastOnline;Seen7d;AvgPerDay;SharePct;Dungeon7d;Raid7d;Note" }
     for _, r in ipairs(list()) do
-        lines[#lines + 1] = string.format("%s;%d;%s%d;%s;%s;%s;%s;%d;%s", r.name, r.m.level or 0, r.partial and "~" or "",
-            r.gain, r.m.rank or "", ago(r.m.lastOnline, now), hm(r.play), hm(r.avg), r.share * 100,
+        lines[#lines + 1] = string.format("%s;%d;%s%d;%s;%s;%s;%s;%d;%s;%s;%s", r.name, r.m.level or 0, r.partial and "~" or "",
+            r.gain, r.m.rank or "", ago(r.m.lastOnline, now), hm(r.play), hm(r.avg), r.share * 100, hm(r.dung), hm(r.raid),
             ((r.m.note or ""):gsub(";", ",")))
     end
     return table.concat(lines, "\n")
@@ -261,11 +304,12 @@ local COLS = {
     { key = "name",  label = "Name",        w = 130 },
     { key = "level", label = "Lvl",         w = 40 },
     { key = "gain",  label = "+7d",         w = 45 },
-    { key = "rank",  label = "Rank",        w = 110 },
+    { key = "rank",  label = "Rank",        w = 90 },
     { key = "seen",  label = "Last online", w = 80 },
     { key = "play",  label = "Seen 7d",     w = 65 },
     { key = "avg",   label = "Avg/day",     w = 60 },
-    { key = "note",  label = "Note",        w = 140 },
+    { key = "dung",  label = "Dungeon 7d",  w = 65 },
+    { key = "note",  label = "Note",        w = 95 },
 }
 local ROWH, NROWS = 16, 24
 
@@ -294,7 +338,7 @@ local function build()
         b:GetFontString():SetPoint("LEFT")
         if c.key ~= "note" then
             b:SetScript("OnClick", function()
-                if view.sort == c.key then view.desc = not view.desc else view.sort, view.desc = c.key, c.key == "level" or c.key == "gain" or c.key == "play" or c.key == "avg" end
+                if view.sort == c.key then view.desc = not view.desc else view.sort, view.desc = c.key, c.key == "level" or c.key == "gain" or c.key == "play" or c.key == "avg" or c.key == "dung" end
                 frame:Refresh()
             end)
         end
@@ -340,7 +384,7 @@ local function build()
 
     frame.legend = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     frame.legend:SetPoint("BOTTOMLEFT", 14, 10)
-    frame.legend:SetText("+7d: levels gained (~ = <7d history). Seen 7d / Avg/day: time seen online by anyone running Guild Pulse; % = share of that watched time.")
+    frame.legend:SetText("+7d: levels gained (~ = <7d history). Seen 7d / Avg/day / Dungeon 7d: time seen by anyone running Guild Pulse; % = share of watched time.")
 
     function frame:Refresh()
         local now, data = time(), list()
@@ -365,7 +409,8 @@ local function build()
                 r.cells[5]:SetText(seenColor(m.lastOnline, now) .. (m.online and "online" or ago(m.lastOnline, now)) .. "|r")
                 r.cells[6]:SetText(hm(d.play))
                 r.cells[7]:SetText(hm(d.avg) .. (d.play > 0 and string.format(" |cff999999%d%%|r", d.share * 100) or ""))
-                r.cells[8]:SetText(m.note or "")
+                r.cells[8]:SetText(hm(d.dung))
+                r.cells[9]:SetText(m.note or "")
                 r:Show()
             else
                 r:Hide()
@@ -412,11 +457,12 @@ local function memberText(name)
     if not m then return nil end
     local now = time()
     local g, partial = gain(m, now)
-    local play, avg, share, watched = stats(m, now)
+    local play, avg, share, watched, dung, raid = stats(m, now)
     local lines = {
         string.format("|cffffd100Levels 7d:|r %s%d  |cff999999(lvl %d)|r", partial and "~" or "+", g, m.level or 0),
         string.format("|cffffd100Seen online 7d:|r %s", hm(play)),
         string.format("|cffffd100Avg/day:|r %s  |cff999999(%d%% of %s watched)|r", hm(avg), share * 100, hm(watched)),
+        string.format("|cffffd100Dungeons 7d:|r %s   |cffffd100Raids 7d:|r %s", hm(dung), hm(raid)),
         string.format("|cffffd100Tracked since:|r %s", date("%d %b", m.firstSeen or now)),
     }
     return table.concat(lines, "\n")
@@ -470,6 +516,9 @@ end
 --   S:<name>:<ranges>      a member's online ranges
 --   O:<name>:<time>        a member's last-online time
 --   V:<name>:<t>=<lvl>,... a member's level history
+--   D:<name>:<ranges>      a member's minutes inside dungeons
+--   X:<name>:<ranges>      a member's minutes inside raids
+--   Z:<d|r><zone name>     a learned instance zone (d = dungeon, r = raid)
 -- Numbers are base 36; a range is <start minute>+<length>.
 
 local PREFIX = "GPulse"
@@ -531,8 +580,15 @@ local function queueData(sinceMin)
                 if e.t >= sinceMin * 60 then lv[#lv + 1] = b36(e.t) .. "=" .. e.l end
             end
             queueItems("V:" .. name .. ":", lv)
+            queueItems("D:" .. name .. ":", rangeItems(m.dung, sinceMin))
+            queueItems("X:" .. name .. ":", rangeItems(m.raid, sinceMin))
         end
     end
+    local zones = sinceMin == 0 and (db.zones or {}) or newZones
+    for zone, k in pairs(zones) do
+        if #zone < MAXLEN - 3 then queue("Z:" .. k .. zone) end
+    end
+    wipe(newZones)
 end
 
 local function fullDump()
@@ -579,6 +635,13 @@ local function onAddonMessage(text, sender)
         return
     elseif kind == "W" then
         parseRanges(rest, function(a, b) addRange(db.watched, a, b) end)
+    elseif kind == "Z" then
+        local k, zone = rest:sub(1, 1), rest:sub(2)
+        if zone ~= "" and not KNOWN_ZONES[zone] and (k == "d" or k == "r") then
+            db.zones = db.zones or {}
+            db.zones[zone] = k
+        end
+        return
     else
         local name, data = rest:match("^([^:]+):(.*)$")
         local m = name and db.members[name]
@@ -586,6 +649,12 @@ local function onAddonMessage(text, sender)
         if kind == "S" then
             m.sess = m.sess or {}
             parseRanges(data, function(a, b) addRange(m.sess, a, b) end)
+        elseif kind == "D" then
+            m.dung = m.dung or {}
+            parseRanges(data, function(a, b) addRange(m.dung, a, b) end)
+        elseif kind == "X" then
+            m.raid = m.raid or {}
+            parseRanges(data, function(a, b) addRange(m.raid, a, b) end)
         elseif kind == "O" then
             local t = tonumber(data, 36)
             if t and t <= now + 60 and (not m.lastOnline or t > m.lastOnline) then m.lastOnline = t end
