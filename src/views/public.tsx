@@ -170,7 +170,7 @@ export const AddonsPage = () => (
         Keeps track of the guild roster: everyone's level, when they were last online, how many levels they gained in the
         last 7 days and how much time they were seen online. Handy for checking that raiders are still levelling.
         Type <code>/gpulse</code> to open it. Click a column to sort, use the Rank button to show only Raiders, and click a
-        member in the Guild window to see their stats under the member details. Officers can paste
+        member in the Guild window to see their stats under the member details. Officers can paste{' '}
         <b>Export for site</b> into the roster page on this site.
       </p>
       <p class="alt">
