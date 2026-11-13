@@ -110,3 +110,13 @@ describe('admin roster page', () => {
     expect(row.seen7d).toBe(100);
   });
 });
+
+describe('addons page', () => {
+  it('links the Guild Pulse download and screenshot', async () => {
+    const r = await SELF.fetch('https://x/addons');
+    expect(r.status).toBe(200);
+    const html = await r.text();
+    expect(html).toContain('/downloads/GuildPulse.zip');
+    expect(html).toContain('/img/guildpulse.webp');
+  });
+});

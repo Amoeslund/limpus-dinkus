@@ -70,3 +70,7 @@ Officer-only page for checking that raiders are still levelling. Two sources fee
 - **Guild Pulse addon** (optional, any officer): in game `/gpulse`, then **Export for site**, and paste the JSON into the box on the roster page. It adds last online, time seen online in the last 7 days and the average per day. Playtime only counts while the person running the addon was online, so it is a lower bound. Reports from several officers merge: last online keeps the newest value.
 
 Rank names come from Guild Pulse reports; until one is imported, ranks show as numbers.
+
+### Guild Pulse download
+
+The public `/addons` page offers `public/downloads/GuildPulse.zip` with the screenshot `public/img/guildpulse.webp`. The addon source is in `addon/GuildPulse` (developed in the Wow Forever project). After changing it, rebuild the zip so the download matches: from `addon/`, zip the `GuildPulse` folder to `public/downloads/GuildPulse.zip`.

@@ -63,6 +63,8 @@ button.sort .arrow{font-size:9px}
   .loot tr.drop td.it{flex:0 0 100%;white-space:normal;overflow-wrap:anywhere}
   .loot tr.drop td.pl{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
 }
+.shot{display:block;max-width:100%;height:auto;border:1px solid var(--line);border-radius:8px;margin-top:8px}
+.dl{display:inline-block;background:var(--gold);color:#1a1410;border-radius:6px;padding:8px 16px;font-weight:600;text-decoration:none}
 .bar{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;width:80px;display:inline-block;vertical-align:middle;margin-left:6px}
 .bar i{display:block;height:100%;background:var(--gold)}
 `;
@@ -89,6 +91,7 @@ export const Layout = ({ title, nav, children, admin }: { title: string; nav: Na
           {nav.instances.map((i) => (
             <a href={`/raid/${i.slug}`} class={nav.active === i.slug ? 'on' : ''}>{i.name}</a>
           ))}
+          <a href="/addons" class={nav.active === 'addons' ? 'on' : ''}>Addons</a>
         </nav>
         <div class="spacer"></div>
         <a class={admin ? 'login on' : 'login'} href="/admin">Officer login</a>
