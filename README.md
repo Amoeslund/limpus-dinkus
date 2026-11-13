@@ -73,4 +73,4 @@ Rank names come from Guild Pulse reports; until one is imported, ranks show as n
 
 ### Guild Pulse download
 
-The public `/addons` page offers `public/downloads/GuildPulse.zip` with the screenshot `public/img/guildpulse.webp`. The addon source is in `addon/GuildPulse` (developed in the Wow Forever project). After changing it, rebuild the zip so the download matches: from `addon/`, zip the `GuildPulse` folder to `public/downloads/GuildPulse.zip`.
+The officer-only `/admin/addons` page offers `public/officer/GuildPulse.zip` with the screenshot `public/officer/guildpulse.webp`. Everything under `public/officer/` is routed through the Worker (`run_worker_first`) and needs an officer login. The addon source is in `addon/GuildPulse` (developed in the Wow Forever project). After changing it, rebuild the zip so the download matches: from `addon/`, zip the `GuildPulse` folder to `public/officer/GuildPulse.zip`.

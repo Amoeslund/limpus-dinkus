@@ -4,7 +4,7 @@ import { pageCache } from '../http/page-cache';
 import { listInstances, loadEpgp, loadRaidLog, loadStandingsInput } from '../db/read';
 import { computeStandings } from '../domain/standings';
 import { Layout } from '../views/layout';
-import { AddonsPage, AttendancePage, NoRaidsPage, RaidPage } from '../views/public';
+import { AttendancePage, NoRaidsPage, RaidPage } from '../views/public';
 
 export const publicRoutes = new Hono<{ Bindings: Env }>();
 
@@ -45,7 +45,5 @@ publicRoutes.get('/raid/:slug', pageCache(), async (c) => {
   );
 });
 
-publicRoutes.get('/addons', pageCache(), async (c) => {
-  const instances = await listInstances(c.env.DB);
-  return c.html(<Layout title="Addons - Limpus Dinkus" nav={{ instances, active: 'addons' }}><AddonsPage /></Layout>);
-});
+// The addons page is officer-only now (/admin/addons); keep old links working.
+publicRoutes.get('/addons', (c) => c.redirect('/admin/addons'));

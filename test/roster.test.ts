@@ -112,11 +112,20 @@ describe('admin roster page', () => {
 });
 
 describe('addons page', () => {
-  it('links the Guild Pulse download and screenshot', async () => {
-    const r = await SELF.fetch('https://x/addons');
+  it('is officer-only, including the download', async () => {
+    for (const p of ['/admin/addons', '/officer/GuildPulse.zip']) {
+      const r = await SELF.fetch('https://x' + p, { redirect: 'manual' });
+      expect(r.status).toBe(302);
+    }
+    const old = await SELF.fetch('https://x/addons', { redirect: 'manual' });
+    expect(old.headers.get('location')).toBe('/admin/addons');
+  });
+
+  it('shows the download to officers', async () => {
+    const r = await SELF.fetch('https://x/admin/addons', { headers: { cookie: await adminCookie() } });
     expect(r.status).toBe(200);
     const html = await r.text();
-    expect(html).toContain('/downloads/GuildPulse.zip');
-    expect(html).toContain('/img/guildpulse.webp');
+    expect(html).toContain('/officer/GuildPulse.zip');
+    expect(html).toContain('/officer/guildpulse.webp');
   });
 });

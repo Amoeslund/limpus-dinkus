@@ -11,12 +11,14 @@ import { ADMIN_CSS, formatDateTime, ImportPage, type PickState } from '../views/
 import { MAX_LEVEL } from '../config';
 import { loadRoster, pollArmory, saveGuildPulse } from '../db/roster';
 import { parseGuildPulse } from '../domain/roster';
+import { AddonsPage } from '../views/addons';
 import { ROSTER_CSS, RosterPage, SORTS, type RosterSort } from '../views/roster';
 
 type AdminEnv = { Bindings: Env; Variables: { admin: { id: string; name: string } } };
 export const adminRoutes = new Hono<AdminEnv>();
 adminRoutes.use('/admin', requireAdmin);
 adminRoutes.use('/admin/*', requireAdmin);
+adminRoutes.use('/officer/*', requireAdmin);
 
 const OTHER = '__other';
 const emptyState = (): PickState => ({ instance: {}, other: {}, countsOff: [] });
@@ -249,4 +251,14 @@ adminRoutes.post('/admin/roster/poll', async (c) => {
   const res = await pollArmory(c.env.DB);
   if (!res.ok) return rosterPage(c, { error: res.error, status: 400 });
   return c.redirect('/admin/roster?imported=' + encodeURIComponent(`armory roster, ${res.value.members} members, ${res.value.levelChanges} level changes`));
+});
+
+// Addons (officer-only page and downloads)
+adminRoutes.get('/admin/addons', (c) => managePage(c, 'Admin: addons', <AddonsPage />));
+
+adminRoutes.get('/officer/*', async (c) => {
+  const res = await c.env.ASSETS.fetch(c.req.raw);
+  const out = new Response(res.body, res);
+  out.headers.set('Cache-Control', 'private, no-store');
+  return out;
 });

@@ -1,8 +1,9 @@
 {
   "name": "limpus-dinkus",
   "main": "src/index.tsx",
-  // Static files (logo, favicon) are served before the Worker runs.
-  "assets": { "directory": "./public" },
+  // Static files (logo, favicon) are served before the Worker runs, except /officer/* (addon downloads),
+  // which goes through the Worker so only logged-in officers get it.
+  "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": ["/officer/*"] },
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
   // Armory roster poll (see src/db/roster.ts).

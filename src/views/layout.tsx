@@ -91,7 +91,6 @@ export const Layout = ({ title, nav, children, admin }: { title: string; nav: Na
           {nav.instances.map((i) => (
             <a href={`/raid/${i.slug}`} class={nav.active === i.slug ? 'on' : ''}>{i.name}</a>
           ))}
-          <a href="/addons" class={nav.active === 'addons' ? 'on' : ''}>Addons</a>
         </nav>
         <div class="spacer"></div>
         <a class={admin ? 'login on' : 'login'} href="/admin">Officer login</a>
