@@ -83,7 +83,7 @@ export const RosterPage = (p: {
         <p class="alt" style="margin-top:0">
           Level and rank come from the armory every 3 hours ({data.armoryAt ? `last ${formatDateTime(data.armoryAt)}` : 'not polled yet'}).
           Last online and playtime come from the Guild Pulse addon ({data.pulseAt ? `last report ${formatDateTime(data.pulseAt)}` : 'no report yet'}).
-          Playtime only counts time the reporter was online too.
+          Guild Pulse users share data in game, so one report covers what all of them saw; playtime only counts while at least one of them was online.
         </p>
         <form method="post" action="/admin/roster/poll" class="row" style="margin:0 0 12px">
           <button class="btn ghost" type="submit">Poll armory now</button>

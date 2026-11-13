@@ -24,29 +24,80 @@ local function offlineHours(i)
 end
 
 local MAXGAP = 180            -- seconds; longer gaps between scans (we were offline/loading) are not counted
-local KEEP_DAYS = 30
+local KEEP_MIN = 8 * 24 * 60  -- minutes of online ranges kept
 
-local function dayKey(t) return date("%Y-%m-%d", t) end
-
-local function addTime(buckets, day, dt)
-    buckets[day] = (buckets[day] or 0) + dt
-end
-
--- Sum of a day-bucket table over the last WINDOW, and how many of those days have entries.
-local function recent(buckets, now)
-    local total, days = 0, 0
-    if not buckets then return 0, 0 end
-    for i = 0, 6 do
-        local v = buckets[dayKey(now - i * DAY)]
-        if v and v > 0 then total, days = total + v, days + 1 end
+-- Online time is stored as ranges of whole minutes since the epoch, { {s, e}, ... } with e exclusive,
+-- sorted and non-overlapping. Ranges merge cleanly, so data from other Guild Pulse users never double-counts.
+local function addRange(list, s, e)
+    if e <= s then return end
+    local n = #list
+    if n == 0 or s > list[n][2] then list[n + 1] = { s, e } return end
+    if s >= list[n][1] then
+        if e > list[n][2] then list[n][2] = e end
+        return
     end
-    return total, days
+    list[n + 1] = { s, e }
+    table.sort(list, function(a, b) return a[1] < b[1] end)
+    local out = {}
+    for _, r in ipairs(list) do
+        local last = out[#out]
+        if last and r[1] <= last[2] then
+            if r[2] > last[2] then last[2] = r[2] end
+        else
+            out[#out + 1] = { r[1], r[2] }
+        end
+    end
+    wipe(list)
+    for i, r in ipairs(out) do list[i] = r end
 end
 
-local function prune(buckets, now)
-    if not buckets then return end
-    local oldest = dayKey(now - KEEP_DAYS * DAY)
-    for d in pairs(buckets) do if d < oldest then buckets[d] = nil end end
+local function pruneRanges(list, oldest)
+    if not list then return end
+    local keep = {}
+    for _, r in ipairs(list) do if r[2] >= oldest then keep[#keep + 1] = r end end
+    wipe(list)
+    for i, r in ipairs(keep) do list[i] = r end
+end
+
+local function window(now)
+    local to = math.floor(now / 60)
+    return to - WINDOW / 60, to
+end
+
+-- Seconds covered by ranges in the last 7 days.
+local function seenSecs(list, now)
+    local from, to, total = window(now)
+    total = 0
+    for _, r in ipairs(list or {}) do
+        local s, e = math.max(r[1], from), math.min(r[2], to)
+        if e > s then total = total + (e - s) end
+    end
+    return total * 60
+end
+
+-- Number of days in the last 7 with any watched time (someone running Guild Pulse was online).
+local function watchedDays(now)
+    local from, to = window(now)
+    local days, n = {}, 0
+    local function mark(minute)
+        local k = date("%Y%m%d", minute * 60)
+        if not days[k] then days[k] = true; n = n + 1 end
+    end
+    for _, r in ipairs(db and db.watched or {}) do
+        local s, e = math.max(r[1], from), math.min(r[2], to)
+        if e > s then
+            for t = s, e - 1, 60 do mark(t) end
+            mark(e - 1)
+        end
+    end
+    return n
+end
+
+-- play = seconds seen online in 7 days, avg = per watched day, share = of all watched time.
+local function stats(m, now)
+    local play = seenSecs(m.sess, now)
+    local watched, wdays = seenSecs(db and db.watched, now), watchedDays(now)
+    return play, wdays > 0 and play / wdays or 0, watched > 0 and math.min(1, play / watched) or 0, watched
 end
 
 local function scan()
@@ -55,24 +106,27 @@ local function scan()
     GuildPulseDB[key] = GuildPulseDB[key] or { members = {} }
     db = GuildPulseDB[key]
     local now, seen = time(), {}
-    -- Online-time tracking: credit the time since the previous scan to everyone who was online then.
+    -- v1.0 stored day buckets; they cannot be merged with other users' data, so start over.
+    if db.watched and db.watched[1] == nil and next(db.watched) then db.watched = nil end
     db.watched = db.watched or {}
+    db.peers = db.peers or {}
+    -- Online-time tracking: the minutes since the previous scan go to everyone who was online then.
     local dt = db.lastTick and (now - db.lastTick) or 0
-    local credit = dt > 0 and dt <= MAXGAP
-    local today = dayKey(now)
-    if credit then
-        addTime(db.watched, today, dt)
+    if dt > 0 and dt <= MAXGAP then
+        local s, e = math.floor(db.lastTick / 60), math.floor(now / 60)
+        addRange(db.watched, s, e)
         for _, m in pairs(db.members) do
             if m.online and not m.gone then
-                m.played = m.played or {}
-                addTime(m.played, today, dt)
+                m.sess = m.sess or {}
+                addRange(m.sess, s, e)
             end
         end
     end
     db.lastTick = now
     if not db.pruned or now - db.pruned > DAY then
-        prune(db.watched, now)
-        for _, m in pairs(db.members) do prune(m.played, now) end
+        local oldest = math.floor(now / 60) - KEEP_MIN
+        pruneRanges(db.watched, oldest)
+        for _, m in pairs(db.members) do m.played = nil; pruneRanges(m.sess, oldest) end
         db.pruned = now
     end
     local n = GetNumGuildMembers()
@@ -137,11 +191,8 @@ local function list()
     for name, m in pairs(db.members) do
         if not m.gone and (not view.rank or m.rankIndex == view.rank) and not (view.hideMax and m.level == MAXLVL) then
             local g, partial = gain(m, now)
-            local play = recent(m.played, now)
-            local watched, wdays = recent(db.watched, now)
-            out[#out + 1] = { name = name, m = m, gain = g, partial = partial, play = play,
-                              avg = wdays > 0 and play / wdays or 0,
-                              share = watched > 0 and play / watched or 0 }
+            local play, avg, share = stats(m, now)
+            out[#out + 1] = { name = name, m = m, gain = g, partial = partial, play = play, avg = avg, share = share }
         end
     end
     local key = view.sort
@@ -180,15 +231,14 @@ end
 local function siteJSON()
     local now, parts = time(), {}
     if db then
-        local watched, wdays = recent(db.watched, now)
         for name, m in pairs(db.members) do
             if not m.gone then
-                local play = recent(m.played, now)
+                local play, avg, share = stats(m, now)
                 parts[#parts + 1] = string.format(
                     '{"name":%s,"level":%d,"rank":%s,"rankIndex":%d,"lastOnline":%s,"seen7d":%d,"avgDay":%d,"share":%.3f}',
                     jsonStr(name), m.level or 0, jsonStr(m.rank), m.rankIndex or -1,
                     m.online and tostring(now) or (m.lastOnline and tostring(m.lastOnline) or "null"),
-                    play, wdays > 0 and math.floor(play / wdays) or 0, watched > 0 and play / watched or 0)
+                    play, math.floor(avg), share)
             end
         end
     end
@@ -290,14 +340,16 @@ local function build()
 
     frame.legend = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     frame.legend:SetPoint("BOTTOMLEFT", 14, 10)
-    frame.legend:SetText("+7d: levels gained (~ = <7d history). Seen 7d / Avg/day: online time while YOU were online (per day you logged in); % = share of your time.")
+    frame.legend:SetText("+7d: levels gained (~ = <7d history). Seen 7d / Avg/day: time seen online by anyone running Guild Pulse; % = share of that watched time.")
 
     function frame:Refresh()
         local now, data = time(), list()
         self.rankBtn:SetText(rankLabel())
         self.maxBtn:SetText("Hide max level: " .. (view.hideMax and "on" or "off"))
-        local watched = db and recent(db.watched, now) or 0
-        self.status:SetText(string.format("%d shown · watched %s in 7d · scanned %s", #data, hm(watched), db and db.scanned and ago(db.scanned, now) or "never"))
+        local peers = 0
+        for _, t in pairs(db and db.peers or {}) do if now - t < WINDOW then peers = peers + 1 end end
+        self.status:SetText(string.format("%d shown · %d other Guild Pulse users · scanned %s", #data, peers,
+            db and db.scanned and ago(db.scanned, now) or "never"))
         FauxScrollFrame_Update(self.scroll, #data, NROWS, ROWH)
         local off = FauxScrollFrame_GetOffset(self.scroll)
         for i = 1, NROWS do
@@ -360,13 +412,11 @@ local function memberText(name)
     if not m then return nil end
     local now = time()
     local g, partial = gain(m, now)
-    local play = recent(m.played, now)
-    local watched, wdays = recent(db.watched, now)
+    local play, avg, share, watched = stats(m, now)
     local lines = {
         string.format("|cffffd100Levels 7d:|r %s%d  |cff999999(lvl %d)|r", partial and "~" or "+", g, m.level or 0),
         string.format("|cffffd100Seen online 7d:|r %s", hm(play)),
-        string.format("|cffffd100Avg/day:|r %s  |cff999999(%d%% of your %s)|r",
-            hm(wdays > 0 and play / wdays or 0), watched > 0 and play / watched * 100 or 0, hm(watched)),
+        string.format("|cffffd100Avg/day:|r %s  |cff999999(%d%% of %s watched)|r", hm(avg), share * 100, hm(watched)),
         string.format("|cffffd100Tracked since:|r %s", date("%d %b", m.firstSeen or now)),
     }
     return table.concat(lines, "\n")
@@ -411,6 +461,174 @@ local function hookOldGuildFrame()
     end)
 end
 
+-- Sync between Guild Pulse users over the hidden guild addon channel ----------
+-- Everyone shares online ranges, last-online times and level history. All merges are idempotent
+-- (range union, newest last-online, level history union), so receiving the same data twice is harmless.
+--   R:<nonce>              ask for a full dump (sent ~20 s after login)
+--   F                      "I am sending a full dump" (others with a pending dump cancel theirs)
+--   W:<ranges>             watched ranges (someone running Guild Pulse was online)
+--   S:<name>:<ranges>      a member's online ranges
+--   O:<name>:<time>        a member's last-online time
+--   V:<name>:<t>=<lvl>,... a member's level history
+-- Numbers are base 36; a range is <start minute>+<length>.
+
+local PREFIX = "GPulse"
+local MAXLEN = 240
+local sendQueue, nonce, pendingDump, lastSentMin = {}, nil, nil, nil
+local refreshPending = false
+
+local B36 = "0123456789abcdefghijklmnopqrstuvwxyz"
+local function b36(n)
+    n = math.floor(n)
+    if n <= 0 then return "0" end
+    local out = ""
+    while n > 0 do
+        local r = n % 36
+        out = B36:sub(r + 1, r + 1) .. out
+        n = math.floor(n / 36)
+    end
+    return out
+end
+
+local function queue(msg)
+    if #sendQueue < 400 then sendQueue[#sendQueue + 1] = msg end
+end
+
+-- Splits a list of items into as many messages as needed, each starting with the same header.
+local function queueItems(header, items)
+    local buf = {}
+    local len = #header
+    for _, it in ipairs(items) do
+        if #buf > 0 and len + 1 + #it > MAXLEN then
+            queue(header .. table.concat(buf, ","))
+            buf, len = {}, #header
+        end
+        buf[#buf + 1] = it
+        len = len + 1 + #it
+    end
+    if #buf > 0 then queue(header .. table.concat(buf, ",")) end
+end
+
+local function rangeItems(list, sinceMin)
+    local items = {}
+    for _, r in ipairs(list or {}) do
+        if r[2] >= sinceMin then items[#items + 1] = b36(r[1]) .. "+" .. b36(r[2] - r[1]) end
+    end
+    return items
+end
+
+-- Everything changed since sinceMin (a full dump passes the start of the kept history).
+local function queueData(sinceMin)
+    if not db then return end
+    queueItems("W:", rangeItems(db.watched, sinceMin))
+    for name, m in pairs(db.members) do
+        if not m.gone and not name:find("[:,]") then
+            queueItems("S:" .. name .. ":", rangeItems(m.sess, sinceMin))
+            local lo = m.online and time() or m.lastOnline
+            if lo and lo >= sinceMin * 60 then queue("O:" .. name .. ":" .. b36(lo)) end
+            local lv = {}
+            for _, e in ipairs(m.levels or {}) do
+                if e.t >= sinceMin * 60 then lv[#lv + 1] = b36(e.t) .. "=" .. e.l end
+            end
+            queueItems("V:" .. name .. ":", lv)
+        end
+    end
+end
+
+local function fullDump()
+    pendingDump = nil
+    queue("F")
+    queueData(0)
+end
+
+local function broadcastDelta()
+    if not db or not IsInGuild() then return end
+    local nowMin = math.floor(time() / 60)
+    queueData(lastSentMin or (nowMin - 10))
+    lastSentMin = nowMin - 1
+end
+
+local function parseRanges(str, fn)
+    for a, len in str:gmatch("(%w+)%+(%w+)") do
+        a, len = tonumber(a, 36), tonumber(len, 36)
+        if a and len and len > 0 and len <= 7 * 24 * 60 then fn(a, a + len) end
+    end
+end
+
+local function scheduleRefresh()
+    if refreshPending or not (frame and frame:IsShown()) then return end
+    refreshPending = true
+    C_Timer.After(1, function()
+        refreshPending = false
+        if frame and frame:IsShown() then frame:Refresh() end
+    end)
+end
+
+local function onAddonMessage(text, sender)
+    if not db then return end
+    local now = time()
+    local kind, rest = text:sub(1, 1), text:sub(3)
+    if kind == "R" then
+        if rest == nonce then return end
+        db.peers[Ambiguate(sender or "?", "guild")] = now
+        if not pendingDump then pendingDump = C_Timer.NewTimer(2 + math.random() * 8, fullDump) end
+        return
+    elseif kind == "F" then
+        if pendingDump then pendingDump:Cancel(); pendingDump = nil end
+        db.peers[Ambiguate(sender or "?", "guild")] = now
+        return
+    elseif kind == "W" then
+        parseRanges(rest, function(a, b) addRange(db.watched, a, b) end)
+    else
+        local name, data = rest:match("^([^:]+):(.*)$")
+        local m = name and db.members[name]
+        if not m then return end
+        if kind == "S" then
+            m.sess = m.sess or {}
+            parseRanges(data, function(a, b) addRange(m.sess, a, b) end)
+        elseif kind == "O" then
+            local t = tonumber(data, 36)
+            if t and t <= now + 60 and (not m.lastOnline or t > m.lastOnline) then m.lastOnline = t end
+        elseif kind == "V" then
+            local known, added = {}, false
+            for _, e in ipairs(m.levels) do known[e.t] = true end
+            for t, l in data:gmatch("(%w+)=(%d+)") do
+                t, l = tonumber(t, 36), tonumber(l)
+                if t and l and t <= now + 60 and not known[t] then
+                    m.levels[#m.levels + 1] = { t = t, l = l }
+                    known[t], added = true, true
+                end
+            end
+            if added then
+                table.sort(m.levels, function(a, b) return a.t < b.t end)
+                local out = {}
+                for _, e in ipairs(m.levels) do
+                    if #out == 0 or out[#out].l ~= e.l then out[#out + 1] = e end
+                end
+                m.levels = out
+            end
+        end
+    end
+    scheduleRefresh()
+end
+
+local function startSync()
+    if not (C_ChatInfo and C_ChatInfo.SendAddonMessage) then return end
+    C_ChatInfo.RegisterAddonMessagePrefix(PREFIX)
+    -- Blizzard throttles addon messages; one per 1.2 s stays well under the limit.
+    C_Timer.NewTicker(1.2, function()
+        local msg = table.remove(sendQueue, 1)
+        if msg and IsInGuild() then C_ChatInfo.SendAddonMessage(PREFIX, msg, "GUILD") end
+    end)
+    C_Timer.After(20, function()
+        if not IsInGuild() then return end
+        nonce = b36(math.random(1, 1073741823))
+        lastSentMin = math.floor(time() / 60) - 10
+        queue("R:" .. nonce)
+    end)
+    C_Timer.NewTicker(300, broadcastDelta)
+end
+
 SLASH_GUILDPULSE1, SLASH_GUILDPULSE2 = "/gpulse", "/guildpulse"
 SlashCmdList.GUILDPULSE = function(msg)
     msg = (msg or ""):lower()
@@ -427,7 +645,15 @@ local ev = CreateFrame("Frame")
 ev:RegisterEvent("PLAYER_LOGIN")
 ev:RegisterEvent("GUILD_ROSTER_UPDATE")
 ev:RegisterEvent("ADDON_LOADED")
-ev:SetScript("OnEvent", function(_, event, arg)
+ev:RegisterEvent("CHAT_MSG_ADDON")
+ev:SetScript("OnEvent", function(_, event, arg, ...)
+    if event == "CHAT_MSG_ADDON" then
+        if arg == PREFIX then
+            local text, channel, sender = ...
+            if channel == "GUILD" then onAddonMessage(text, sender) end
+        end
+        return
+    end
     if event == "ADDON_LOADED" then
         if arg == "Blizzard_Communities" then hookCommunities()
         elseif arg == "Blizzard_GuildUI" then hookOldGuildFrame() end
@@ -441,6 +667,7 @@ ev:SetScript("OnEvent", function(_, event, arg)
         -- the per-minute refresh is what makes the online-time tracking accurate.
         C_Timer.After(5, function() if IsInGuild() then C_GuildInfo.GuildRoster() end end)
         C_Timer.NewTicker(60, function() if IsInGuild() then C_GuildInfo.GuildRoster() end end)
+        startSync()
     else
         if GuildPulseDB then scan() end
     end

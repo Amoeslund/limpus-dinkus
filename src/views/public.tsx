@@ -174,7 +174,9 @@ export const AddonsPage = () => (
         <b>Export for site</b> into the roster page on this site.
       </p>
       <p class="alt">
-        Playtime only counts while you are online yourself, and levels gained show <code>~</code> until the addon has a week of history.
+        Everyone running Guild Pulse shares what they see over a hidden guild addon channel, so the more people use it,
+        the more complete the playtime gets. Playtime only counts while at least one Guild Pulse user is online, and levels
+        gained show <code>~</code> until the addon has a week of history.
       </p>
       <p><a class="dl" href="/downloads/GuildPulse.zip" download>Download Guild Pulse (zip)</a></p>
       <img class="shot" src="/img/guildpulse.webp" width="965" height="664" alt="The Guild Pulse window listing guild members with level, rank, last online and playtime" loading="lazy" />

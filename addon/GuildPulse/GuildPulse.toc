@@ -1,8 +1,8 @@
 ## Interface: 16001
 ## Title: Guild Pulse
-## Notes: Guild roster tracker: level, last online and levels gained over the last 7 days. /gpulse
+## Notes: Guild roster tracker: level, last online, levels gained and time online over the last 7 days. Shares data with other Guild Pulse users in the guild. /gpulse
 ## Author: Xodeus
-## Version: 1.1.0
+## Version: 1.2.0
 ## SavedVariables: GuildPulseDB
 
 GuildPulse.lua
