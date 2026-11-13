@@ -3,6 +3,7 @@ import type { Env } from './env';
 import { publicRoutes } from './routes/public';
 import { authRoutes } from './auth/routes';
 import { adminRoutes } from './routes/admin';
+import { pollArmory } from './db/roster';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -11,4 +12,9 @@ app.route('/', publicRoutes);
 app.route('/', authRoutes);
 app.route('/', adminRoutes);
 
-export default app;
+export default {
+  fetch: app.fetch,
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(pollArmory(env.DB));
+  },
+} satisfies ExportedHandler<Env>;

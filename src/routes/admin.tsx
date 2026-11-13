@@ -8,6 +8,10 @@ import * as A from '../db/admin';
 import { Layout } from '../views/layout';
 import { AdminsPage, CharactersPage, ErrorPage, ItemsPage, LootPage, MANAGE_CSS, NightPage, NightsPage } from '../views/admin-manage';
 import { ADMIN_CSS, formatDateTime, ImportPage, type PickState } from '../views/admin';
+import { MAX_LEVEL } from '../config';
+import { loadRoster, pollArmory, saveGuildPulse } from '../db/roster';
+import { parseGuildPulse } from '../domain/roster';
+import { ROSTER_CSS, RosterPage, SORTS, type RosterSort } from '../views/roster';
 
 type AdminEnv = { Bindings: Env; Variables: { admin: { id: string; name: string } } };
 export const adminRoutes = new Hono<AdminEnv>();
@@ -211,4 +215,38 @@ adminRoutes.post('/admin/admins', async (c) => {
 adminRoutes.post('/admin/admins/:id/delete', async (c) => {
   const res = await A.removeAdmin(c.env.DB, c.req.param('id'), c.env.BOOTSTRAP_ADMIN_ID);
   return res.ok ? c.redirect('/admin/admins') : bad(c, res.error, 'Admins', '/admin/admins');
+});
+
+// Roster
+async function rosterPage(c: any, opts: { imported?: string; error?: string; pulseText?: string; status?: 200 | 400 } = {}) {
+  const now = Math.floor(Date.now() / 1000);
+  const sortQ = c.req.query('sort') ?? 'rank';
+  const sort: RosterSort = (SORTS as readonly string[]).includes(sortQ) ? (sortQ as RosterSort) : 'rank';
+  const rankQ = c.req.query('rank');
+  const rank = rankQ !== undefined && /^\d+$/.test(rankQ) ? Number(rankQ) : null;
+  const instances = await listInstances(c.env.DB);
+  return c.html(
+    <Layout title="Admin: roster" nav={{ instances }} admin>
+      <style dangerouslySetInnerHTML={{ __html: ADMIN_CSS + ROSTER_CSS }} />
+      <RosterPage data={await loadRoster(c.env.DB, now)} now={now} maxLevel={MAX_LEVEL} sort={sort} rank={rank}
+        imported={opts.imported ?? c.req.query('imported')} error={opts.error} pulseText={opts.pulseText} />
+    </Layout>,
+    opts.status ?? 200,
+  );
+}
+
+adminRoutes.get('/admin/roster', (c) => rosterPage(c));
+
+adminRoutes.post('/admin/roster/import', async (c) => {
+  const text = str((await body(c)).pulseText);
+  const parsed = parseGuildPulse(text, Math.floor(Date.now() / 1000));
+  if (!parsed.ok) return rosterPage(c, { error: parsed.error, pulseText: text, status: 400 });
+  const res = await saveGuildPulse(c.env.DB, parsed.value);
+  return c.redirect('/admin/roster?imported=' + encodeURIComponent(`Guild Pulse report, ${res.members} members`));
+});
+
+adminRoutes.post('/admin/roster/poll', async (c) => {
+  const res = await pollArmory(c.env.DB);
+  if (!res.ok) return rosterPage(c, { error: res.error, status: 400 });
+  return c.redirect('/admin/roster?imported=' + encodeURIComponent(`armory roster, ${res.value.members} members, ${res.value.levelChanges} level changes`));
 });

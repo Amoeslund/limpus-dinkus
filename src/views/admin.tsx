@@ -27,7 +27,7 @@ select,input[type=text]{background:#0e0c10;color:var(--text);border:1px solid va
 `;
 
 const SUBNAV: [string, string][] = [
-  ['Import', '/admin'], ['Nights', '/admin/nights'], ['Characters', '/admin/characters'],
+  ['Import', '/admin'], ['Roster', '/admin/roster'], ['Nights', '/admin/nights'], ['Characters', '/admin/characters'],
   ['Items', '/admin/items'], ['Loot', '/admin/loot'], ['Admins', '/admin/admins'],
 ];
 

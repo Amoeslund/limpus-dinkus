@@ -61,3 +61,12 @@ Only one person should run LimpusAttendance per raid. Kills recorded by two peop
 - `/limpus clear` deletes stored kills after you type `clear`.
 
 Kills older than 60 days are pruned automatically.
+
+## Guild roster (`/admin/roster`)
+
+Officer-only page for checking that raiders are still levelling. Two sources feed it:
+
+- **Armory poll** (every 3 hours, Worker cron `17 */3 * * *`): level, class and rank for every member, from the Forever armory. Each level change is stored, so the page shows levels gained in the last 7 days and flags members below max level who stopped. There is no public API for Forever guilds, so this uses the armory page's own GraphQL persisted query (`ARMORY` in `src/config.ts`). If Blizzard changes it, the page shows a red "Armory polling failed" banner and the hash must be updated from the armory's `guild-profile.*.js` bundle. "Poll armory now" runs it by hand.
+- **Guild Pulse addon** (optional, any officer): in game `/gpulse`, then **Export for site**, and paste the JSON into the box on the roster page. It adds last online, time seen online in the last 7 days and the average per day. Playtime only counts while the person running the addon was online, so it is a lower bound. Reports from several officers merge: last online keeps the newest value.
+
+Rank names come from Guild Pulse reports; until one is imported, ranks show as numbers.
