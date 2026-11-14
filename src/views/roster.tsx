@@ -158,7 +158,8 @@ export const RosterPage = (p: {
         </p>
         <p class="alt">
           <b>Effort</b> (0-100, last 7 days, outside raids): dungeon time (4 h = 40), new non-raid gear and item level (max 25),
-          online time outside raid zones (10 h = 20) and levels gained below max level (max 15). Parts with no data are left out
+          online time outside raid zones (10 h = 20) and levels gained below max level (max 15). Below level 55 only levelling
+          counts (3 levels in 7 days = 100; blank until there are 7 days of level history). Parts with no data are left out
           and the rest is scaled to 100. Hover for the breakdown. <b>raid-logger?</b> = 1 h+ in raids but under 1 h online
           elsewhere, under 30 min in dungeons and no new gear.
         </p>

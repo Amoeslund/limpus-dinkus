@@ -20,6 +20,8 @@ export const ARMORY = {
 };
 /** Max character level on WoW Forever; the roster marks members below it who stopped levelling. */
 export const MAX_LEVEL = 60;
+/** Below this level the effort score counts levelling only (dungeons, gear and playtime from this level up). */
+export const EFFORT_GEAR_LEVEL = 55;
 /** Armory character pages fetched per hourly cron run (each page is one subrequest). */
 export const GEAR_BATCH = 15;
 /** Must match the roster cron in wrangler.jsonc; any other cron polls gear. */

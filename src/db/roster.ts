@@ -139,7 +139,7 @@ export async function loadRoster(db: D1Database, now: number): Promise<RosterDat
       newDungeonItems: hasGear ? f.dungeon : null, newOtherItems: hasGear ? f.other : null, gearError: m.gear_error ?? null,
     };
     const effort = effortScore({
-      level: m.level, maxLevel: MAX_LEVEL, levelGain: g.partial ? 0 : g.gain,
+      level: m.level, maxLevel: MAX_LEVEL, levelGain: g.gain, levelPartial: g.partial,
       seen7d, dungeon7d, raid7d,
       newDungeonItems: row.newDungeonItems, newOtherItems: row.newOtherItems, ilvlGain: ig && !ig.partial ? ig.gain : 0,
     });

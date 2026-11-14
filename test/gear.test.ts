@@ -54,6 +54,15 @@ describe('effort score', () => {
     // 4 h dungeons + 10 h outside raids + 25 gear = 85 of 85.
     expect(effortScore({ ...base, seen7d: 14 * 3600, raid7d: 4 * 3600, dungeon7d: 4 * 3600, newDungeonItems: 5, newOtherItems: 0, ilvlGain: 0 }).score).toBe(100);
   });
+  it('counts only levels below 55', () => {
+    const low = { ...base, level: 40, seen7d: 20 * 3600, dungeon7d: 10 * 3600, newDungeonItems: 5, newOtherItems: 0, ilvlGain: 5 };
+    expect(effortScore({ ...low, levelGain: 0 }).score).toBe(0);
+    expect(effortScore({ ...low, levelGain: 2 }).score).toBe(67);
+    expect(effortScore({ ...low, levelGain: 4 }).score).toBe(100);
+    expect(effortScore({ ...low, levelGain: 1, levelPartial: true }).score).toBeNull();
+    expect(effortScore({ ...low, levelGain: 2 }).parts.map((p) => p.label)).toEqual(['Levels']);
+  });
+
   it('flags raid-loggers', () => {
     const e = effortScore({ ...base, seen7d: 3 * 3600, raid7d: 3 * 3600, dungeon7d: 0, newDungeonItems: 0, newOtherItems: 0, ilvlGain: 0 });
     expect(e.raidLogger).toBe(true);

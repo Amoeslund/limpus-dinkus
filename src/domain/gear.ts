@@ -1,4 +1,4 @@
-import { ARMORY } from '../config';
+import { ARMORY, EFFORT_GEAR_LEVEL } from '../config';
 import type { ParseResult } from './roster';
 
 export type GearItem = { slot: string; itemId: number; name: string; ilvl: number | null; quality: string | null; source: number | null };
@@ -68,7 +68,8 @@ export async function fetchCharacter(slug: string, fetchFn: typeof fetch = fetch
 
 /** Inputs for one member's outside-raid effort over the last 7 days. null = no data from that source. */
 export type EffortInput = {
-  level: number; maxLevel: number; levelGain: number;
+  /** levelPartial: less than 7 days of level history, so the gain is not known yet. */
+  level: number; maxLevel: number; levelGain: number; levelPartial?: boolean;
   seen7d: number | null; dungeon7d: number | null; raid7d: number | null;   // seconds, from Guild Pulse
   newDungeonItems: number | null; newOtherItems: number | null; ilvlGain: number | null; // from armory gear
 };
@@ -81,9 +82,14 @@ export type Effort = { score: number | null; parts: { label: string; points: num
  *   Gear: new non-raid items (dungeon item 5, other 2) and item level gain (3 per level), max 25.
  *   Online outside raids: 10 h = 20 points.
  *   Levels (below max level only): 5 per level, max 15.
+ * Below EFFORT_GEAR_LEVEL only levelling counts: the score is the Levels part alone (3 levels in 7 days = 100).
  */
 export function effortScore(e: EffortInput): Effort {
   const parts: Effort['parts'] = [];
+  const levels = { label: 'Levels', points: Math.min(15, Math.max(0, e.levelGain) * 5), max: 15 };
+  if (e.level < EFFORT_GEAR_LEVEL) {
+    return { score: e.levelPartial ? null : Math.round((100 * levels.points) / levels.max), parts: [levels], raidLogger: false };
+  }
   if (e.dungeon7d !== null) parts.push({ label: 'Dungeons', points: Math.min(40, e.dungeon7d / 60 / 6), max: 40 });
   if (e.newDungeonItems !== null) {
     const pts = (e.newDungeonItems ?? 0) * 5 + (e.newOtherItems ?? 0) * 2 + Math.max(0, e.ilvlGain ?? 0) * 3;
@@ -91,7 +97,7 @@ export function effortScore(e: EffortInput): Effort {
   }
   const outside = e.seen7d === null ? null : Math.max(0, e.seen7d - (e.raid7d ?? 0));
   if (outside !== null) parts.push({ label: 'Online outside raids', points: Math.min(20, outside / 60 / 30), max: 20 });
-  if (e.level < e.maxLevel) parts.push({ label: 'Levels', points: Math.min(15, Math.max(0, e.levelGain) * 5), max: 15 });
+  if (e.level < e.maxLevel && !e.levelPartial) parts.push(levels);
   const max = parts.reduce((a, p) => a + p.max, 0);
   const got = parts.reduce((a, p) => a + p.points, 0);
   const hasData = e.seen7d !== null || e.newDungeonItems !== null;
